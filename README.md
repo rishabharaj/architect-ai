@@ -2,7 +2,7 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-066c47?style=for-the-badge&logo=supabase)](https://supabase.com/)
-[![Groq](https://img.shields.io/badge/Groq-AI%20Inference-f26522?style=for-the-badge&logo=groq)](https://groq.com/)
+[![GEMINI](https://img.shields.io/badge/Gemini-AI%20Inference-f26522?style=for-the-badge&logo=gemini)](https://gemini.google.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 **Architect AI** is a state-of-the-art AI-powered platform that transforms your startup ideas into comprehensive technical blueprints. From tech stack selection to deployment guides, it handles the architecture so you can focus on building.
@@ -34,7 +34,7 @@
 - **Styling**: Tailwind CSS, Framer Motion, Lucide React
 - **UI Components**: shadcn/ui
 - **Database & Auth**: Supabase
-- **AI Backend**: Groq API (Llama 3.1 8B Instant)
+- **AI Backend**: gemini API (Llama 3.1 8B Instant)
 - **State**: React Query + SessionStorage Persistence
 
 ---
@@ -44,7 +44,7 @@
 ### 1. Prerequisites
 - Node.js 18+
 - Supabase Account
-- Groq API Key
+- gemini API Key
 
 ### 2. Installation
 ```bash
@@ -94,7 +94,7 @@ supabase/
 ## 🧠 AI Reliability
 
 By moving from client-side calls to a secure Next.js API route, we ensure:
-- **Security**: Your `GROQ_API_KEY` remains hidden from the client.
+- **Security**: Your `gemini_API_KEY` remains hidden from the client.
 - **Rate Limiting**: Intelligent pacing and request queuing.
 - **Retries**: Built-in exponential backoff for stable AI responses.
 - **JSON Mode**: Forced structured output for reliable UI rendering.
