@@ -13,7 +13,7 @@
 
 ![Architect AI Preview](./public/preview.png)
 
-> **Live Demo:** [Deploy to Vercel](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Frishabharaj%2Fyour-architect-ai)
+> **Live Demo:** [Deployed link](https://architectai.qzz.io)
 
 ---
 
