@@ -127,11 +127,11 @@ export function ArchitecturePanel({ idea, architecture, guide, isGeneratingGuide
             className="p-3 rounded-lg border border-border bg-card"
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm">{categoryIcons[entry.category] || "📦"}</span>
-                <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">{entry.category}</span>
+              <div className="flex items-center gap-2 shrink-0 max-w-[50%]">
+                <span className="text-sm shrink-0">{categoryIcons[entry.category] || "📦"}</span>
+                <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground truncate">{entry.category}</span>
               </div>
-              <span className="text-sm font-medium text-primary">{entry.selection}</span>
+              <span className="text-sm font-medium text-primary text-right break-words pl-2">{entry.selection}</span>
             </div>
             {entry.details && (
               <div className="mt-2 pt-2 border-t border-border space-y-1.5">

@@ -46,15 +46,15 @@ export default function HomePage() {
         </div>
         <div className="flex items-center gap-1">
           <KnowledgeBasePanel />
-          <Button variant="ghost" size="sm" onClick={reset} className="text-xs text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="sm" onClick={reset} className="text-xs text-muted-foreground hover:text-foreground shrink-0">
             <RotateCcw className="w-3 h-3 mr-1" /> Start Over
           </Button>
         </div>
       </header>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <div className="h-1/2 md:h-auto md:w-1/2 border-b md:border-b-0 md:border-r border-border overflow-auto">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 min-w-0">
+        <div className="h-1/2 md:h-full md:w-1/2 border-b md:border-b-0 md:border-r border-border overflow-auto min-h-0 min-w-0">
           <MCQPanel
             question={currentQuestion}
             isLoading={isAnalyzing}
@@ -64,7 +64,7 @@ export default function HomePage() {
           />
         </div>
 
-        <div className="h-1/2 md:h-auto md:w-1/2 overflow-auto">
+        <div className="h-1/2 md:h-full md:w-1/2 overflow-auto min-h-0 min-w-0">
           <ArchitecturePanel
             idea={idea}
             architecture={architecture}
