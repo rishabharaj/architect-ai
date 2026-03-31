@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Cpu, Mail, Lock, Eye, EyeOff, UserPlus, Loader2, User } from "lucide-react";
+import { Cpu, Mail, Lock, Eye, EyeOff, UserPlus, Loader2, User, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -20,6 +20,7 @@ export default function SignUpPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +42,8 @@ export default function SignUpPage() {
     if (error) {
       toast.error(error);
     } else {
-      toast.success("Account created! Please check your email to verify before logging in.");
-      router.push("/auth/signin");
+      toast.success("Account created! Please check your email.");
+      setIsSuccess(true);
     }
   };
 
@@ -72,8 +73,32 @@ export default function SignUpPage() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-transparent via-accent to-transparent rounded-full" />
 
           <div className="p-8">
-            {/* Logo */}
-            <motion.div
+            {isSuccess ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-col items-center justify-center py-6 text-center"
+              >
+                <div className="w-16 h-16 bg-accent/10 text-accent rounded-full flex items-center justify-center mb-6 border border-accent/20">
+                  <Mail className="w-8 h-8" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-3">Check Your Inbox!</h2>
+                <p className="text-muted-foreground text-sm mb-8 leading-relaxed">
+                  We have sent a verification email to <br/>
+                  <span className="text-foreground font-medium">{email}</span>. <br/><br/>
+                  Please verify your email address to log in.
+                </p>
+                <Button 
+                  onClick={() => router.push("/auth/signin")}
+                  className="w-full py-3 rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 font-medium transition-all"
+                >
+                  Done
+                </Button>
+              </motion.div>
+            ) : (
+              <>
+                {/* Logo */}
+                <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
@@ -230,6 +255,8 @@ export default function SignUpPage() {
                 Sign In
               </Link>
             </motion.p>
+            </>
+            )}
           </div>
         </div>
 
