@@ -57,7 +57,7 @@ export function useArchitect() {
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const restoredRef = useRef(false);
 
-  // ── Persist state to sessionStorage so OAuth redirects don't lose progress ──
+  // ── Persist state to localStorage so refreshes don't lose progress ──
   const persistState = useCallback((overrides?: Partial<{
     idea: string; architecture: ArchitectureEntry[]; completedCategories: string[];
     remainingCategories: string[]; guide: GuideData | null; phase: string;
@@ -75,18 +75,18 @@ export function useArchitect() {
         blueprintId: overrides?.blueprintId ?? blueprintId,
         customCategories: customCategories,
       };
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
+      localStorage.setItem(SESSION_KEY, JSON.stringify(state));
     } catch {
-      // sessionStorage may be unavailable
+      // localStorage may be unavailable
     }
   }, [idea, architecture, completedCategories, remainingCategories, guide, phase, currentQuestion, blueprintId, customCategories]);
 
-  // ── Restore state from sessionStorage on mount (after OAuth redirect) ──
+  // ── Restore state from localStorage on mount (survives page refreshes) ──
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
     try {
-      const saved = sessionStorage.getItem(SESSION_KEY);
+      const saved = localStorage.getItem(SESSION_KEY);
       if (!saved) return;
       const state = JSON.parse(saved);
       if (state.idea) setIdea(state.idea);
@@ -98,12 +98,27 @@ export function useArchitect() {
       if (state.currentQuestion) setCurrentQuestion(state.currentQuestion);
       if (state.blueprintId) setBlueprintId(state.blueprintId);
       if (state.customCategories?.length) setCustomCategories(state.customCategories);
-      // Clear after restore so a normal refresh starts fresh
-      sessionStorage.removeItem(SESSION_KEY);
     } catch {
       // Ignore parse errors
     }
   }, []);
+
+  // ── Auto-save state to localStorage on every meaningful change ──
+  useEffect(() => {
+    // Skip auto-save until initial restore is done
+    if (!restoredRef.current) return;
+    // Only persist when user has started a session
+    if (phase === "input" && !idea) return;
+    try {
+      const state = {
+        idea, architecture, completedCategories, remainingCategories,
+        guide, phase, currentQuestion, blueprintId, customCategories,
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(state));
+    } catch {
+      // localStorage may be unavailable
+    }
+  }, [idea, architecture, completedCategories, remainingCategories, guide, phase, currentQuestion, blueprintId, customCategories]);
 
   // Save blueprint to DB (authenticated users only)
   const saveBlueprint = useCallback(async (
@@ -265,7 +280,7 @@ export function useArchitect() {
     setIsGeneratingGuide(false);
     setBlueprintId(null);
     setCustomCategories([]);
-    try { sessionStorage.removeItem(SESSION_KEY); } catch {}
+    try { localStorage.removeItem(SESSION_KEY); } catch {}
   }, []);
 
   // Load saved blueprints (for authenticated users)
