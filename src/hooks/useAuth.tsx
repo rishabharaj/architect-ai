@@ -18,6 +18,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   updateProfile,
+  sendEmailVerification,
   type User,
 } from "firebase/auth";
 
@@ -79,7 +80,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+      if (
+        firebaseUser &&
+        !firebaseUser.emailVerified &&
+        firebaseUser.providerData.some((p) => p.providerId === "password")
+      ) {
+        setUser(null);
+      } else {
+        setUser(firebaseUser);
+      }
       setLoading(false);
     });
     return () => unsubscribe();
@@ -89,6 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       try {
         const result = await signInWithEmailAndPassword(auth, email, password);
+        if (!result.user.emailVerified) {
+          await firebaseSignOut(auth);
+          return { error: "Please verify your email address before logging in. Check your inbox." };
+        }
         await saveUserToFirestore(result.user);
         return { error: null };
       } catch (err: any) {
@@ -106,6 +119,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await updateProfile(result.user, { displayName: fullName });
         }
         await saveUserToFirestore(result.user, { displayName: fullName });
+        
+        await sendEmailVerification(result.user);
+        await firebaseSignOut(auth);
+        
         return { error: null };
       } catch (err: any) {
         return { error: getAuthErrorMessage(err?.code) };
