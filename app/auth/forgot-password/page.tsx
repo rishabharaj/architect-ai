@@ -53,10 +53,13 @@ export default function ForgotPasswordPage() {
                   <Mail className="w-8 h-8" />
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-3">Check Your Inbox!</h2>
-                <p className="text-muted-foreground text-sm mb-8 leading-relaxed">
+                <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
                   If an account exists for <br/>
                   <span className="text-foreground font-medium">{email}</span> <br/><br/>
                   we have sent a password reset link.
+                </p>
+                <p className="text-xs text-muted-foreground/80 mb-8 bg-primary/5 p-3 rounded-lg border border-primary/10">
+                  <strong className="text-foreground">Didn't receive it?</strong> Please check your spam or junk folder.
                 </p>
                 <Button 
                   onClick={() => router.push("/auth/signin")}
