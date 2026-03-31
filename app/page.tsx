@@ -7,19 +7,21 @@ import { IdeaInput } from "@/components/IdeaInput";
 import { MCQPanel } from "@/components/MCQPanel";
 import { ArchitecturePanel } from "@/components/ArchitecturePanel";
 import { AIChatPanel } from "@/components/AIChatPanel";
-import { Cpu, RotateCcw, FileCode, X, Loader2, BookOpen, LogIn, LogOut, User } from "lucide-react";
+import { Cpu, RotateCcw, FileCode, X, Loader2, BookOpen, LogIn, LogOut, User, PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
 import { downloadMarkdown, downloadPDF } from "@/lib/exportBlueprint";
 import Link from "next/link";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/AppSidebar";
 
 export default function HomePage() {
   const {
     idea, phase, isAnalyzing, currentQuestion, architecture,
     completedCategories, guide, isGeneratingGuide,
-    analyzeIdea, selectOption, addCategory, generateGuide, reset,
+    analyzeIdea, selectOption, addCategory, generateGuide, reset, loadBlueprint,
     persistState, blueprintId,
   } = useArchitect();
   const { user, signOut } = useAuth();
@@ -50,21 +52,40 @@ export default function HomePage() {
 
   if (phase === "input") {
     return (
-      <div className="min-h-screen grid-bg">
-        <IdeaInput onSubmit={analyzeIdea} isLoading={isAnalyzing} />
-      </div>
+      <SidebarProvider defaultOpen={true}>
+        <AppSidebar 
+          currentBlueprintId={blueprintId} 
+          onSelectBlueprint={loadBlueprint} 
+          onNewBlueprint={reset} 
+        />
+        <SidebarInset className="bg-transparent h-screen flex flex-col min-w-0">
+          <div className="absolute top-4 left-4 z-50">
+            <SidebarTrigger className="w-8 h-8 bg-card border border-border shadow-sm text-foreground hover:text-accent flex items-center justify-center transition-colors rounded-md" />
+          </div>
+          <div className="flex-1 overflow-auto grid-bg relative">
+            <IdeaInput onSubmit={analyzeIdea} isLoading={isAnalyzing} />
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col grid-bg">
-      {/* Header */}
-      <header className="h-12 border-b border-border flex items-center justify-between px-4 bg-card/80 backdrop-blur-sm shrink-0">
-        <div className="flex items-center gap-2">
-          <Cpu className="w-5 h-5 text-primary" />
-          <span className="text-sm font-bold text-foreground">
-            Architect<span className="text-primary">AI</span>
-          </span>
+    <SidebarProvider defaultOpen={true}>
+      <AppSidebar 
+        currentBlueprintId={blueprintId} 
+        onSelectBlueprint={loadBlueprint} 
+        onNewBlueprint={reset} 
+      />
+      <SidebarInset className="bg-transparent h-screen flex flex-col min-w-0 grid-bg">
+        {/* Header */}
+        <header className="h-12 border-b border-border flex items-center justify-between px-4 bg-card/80 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors mr-1" />
+            <Cpu className="w-5 h-5 text-primary hidden sm:block" />
+            <span className="text-sm font-bold text-foreground">
+              Architect<span className="text-primary">AI</span>
+            </span>
           <span className="text-[10px] text-muted-foreground font-mono ml-2 truncate max-w-[120px] sm:max-w-[300px] hidden sm:inline">
             — {idea}
           </span>
@@ -75,42 +96,7 @@ export default function HomePage() {
             <RotateCcw className="w-3 h-3 mr-1" /> Start Over
           </Button>
           {/* User auth button */}
-          {user ? (
-            <div className="relative ml-1">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 border border-primary/25 hover:border-primary/50 transition-colors"
-                title={user.email ?? "User"}
-              >
-                {user.photoURL ? (
-                  <img
-                    src={user.photoURL}
-                    alt="avatar"
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <User className="w-4 h-4 text-primary" />
-                )}
-              </button>
-              {showUserMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                  <div className="absolute right-0 top-10 z-50 w-56 rounded-xl border border-border bg-card shadow-2xl p-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="px-3 py-2 border-b border-border mb-1">
-                      <p className="text-xs text-muted-foreground">Signed in as</p>
-                      <p className="text-sm text-foreground font-medium truncate">{user.email}</p>
-                    </div>
-                    <button
-                      onClick={() => { signOut(); setShowUserMenu(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      <LogOut className="w-4 h-4" /> Sign Out
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
+          {!user && (
             <Link href="/auth/signin">
               <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary/80 shrink-0 ml-1">
                 <LogIn className="w-3 h-3 mr-1" /> Sign In
@@ -239,6 +225,7 @@ export default function HomePage() {
       )}
 
       <AIChatPanel idea={idea} architecture={architecture} blueprintId={blueprintId} />
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, setDoc, getDoc, collection } from "firebase/firestore";
 import { toast } from "sonner";
 
 const SESSION_KEY = "architect-ai-state";
@@ -120,7 +121,7 @@ export function useArchitect() {
     }
   }, [idea, architecture, completedCategories, remainingCategories, guide, phase, currentQuestion, blueprintId, customCategories]);
 
-  // Save blueprint — placeholder for future Firestore integration
+  // Save blueprint to Firestore
   const saveBlueprint = useCallback(async (
     currentIdea: string,
     currentArch: ArchitectureEntry[],
@@ -133,9 +134,28 @@ export function useArchitect() {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) return currentBlueprintId;
-      // TODO: Save to Firestore when ready
-      // For now, state is persisted via localStorage
-      return currentBlueprintId;
+
+      const chatsRef = collection(db, "users", currentUser.uid, "chats");
+      const blueprintRef = currentBlueprintId ? doc(chatsRef, currentBlueprintId) : doc(chatsRef);
+
+      const payload: any = {
+        name: currentIdea || "New Architecture",
+        idea: currentIdea,
+        architecture: currentArch,
+        completed_categories: currentCompleted,
+        remaining_categories: currentRemaining,
+        custom_categories: customCategories,
+        guide: currentGuide,
+        phase: currentPhase,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (!currentBlueprintId) {
+        payload.createdAt = new Date().toISOString();
+      }
+
+      await setDoc(blueprintRef, payload, { merge: true });
+      return blueprintRef.id;
     } catch (err) {
       console.error("Failed to save blueprint:", err);
       return currentBlueprintId;
@@ -266,11 +286,27 @@ export function useArchitect() {
     try { localStorage.removeItem(SESSION_KEY); } catch {}
   }, []);
 
-  // Load saved blueprints — placeholder for future Firestore integration
+  // Load saved blueprints from Firestore
   const loadBlueprint = useCallback(async (id: string) => {
-    // TODO: Load from Firestore when ready
-    // For now, state is persisted via localStorage
-    console.log("loadBlueprint called with id:", id);
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    try {
+      const docRef = doc(db, "users", currentUser.uid, "chats", id);
+      const snapshot = await getDoc(docRef);
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setIdea(data.idea || "");
+        setArchitecture(data.architecture || []);
+        setCompletedCategories(data.completed_categories || []);
+        setRemainingCategories(data.remaining_categories || []);
+        setCustomCategories(data.custom_categories || []);
+        setGuide(data.guide || null);
+        setPhase(data.phase || "input");
+        setBlueprintId(id);
+      }
+    } catch (err) {
+      console.error("Failed to load blueprint:", err);
+    }
   }, []);
 
   return {

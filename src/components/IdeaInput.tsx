@@ -37,63 +37,8 @@ export function IdeaInput({ onSubmit, isLoading }: IdeaInputProps) {
       className="flex flex-col items-center justify-center min-h-screen px-4 relative pb-20"
     >
       {/* Auth area — top right */}
-      <div className="absolute top-5 right-5 z-10">
-        {user ? (
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:bg-card/80 hover:border-primary/30 transition-all group"
-            >
-              {user.photoURL ? (
-                <img
-                  src={user.photoURL}
-                  alt="avatar"
-                  className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all"
-                />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary">{userName.charAt(0).toUpperCase()}</span>
-                </div>
-              )}
-              <span className="text-sm text-foreground hidden sm:inline max-w-[120px] truncate">{userName}</span>
-            </button>
-
-            {/* Dropdown */}
-            {showUserMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
-                <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden"
-                >
-                  <div className="px-4 py-3 border-b border-border flex items-center gap-3">
-                    {user.photoURL ? (
-                      <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
-                        <span className="text-sm font-bold text-primary">{userName.charAt(0).toUpperCase()}</span>
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{userName}</p>
-                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                    </div>
-                  </div>
-                  <div className="p-1.5">
-                    <button
-                      onClick={() => { signOut(); setShowUserMenu(false); }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      <LogOut className="w-4 h-4" /> Sign Out
-                    </button>
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </div>
-        ) : (
+      <div className="absolute top-5 right-5 z-10 hidden md:block">
+        {!user && (
           <Link href="/auth/signin">
             <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border bg-card/60 backdrop-blur-sm text-sm text-foreground hover:border-primary/40 hover:bg-card/80 transition-all group">
               <LogIn className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />

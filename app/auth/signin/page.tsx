@@ -38,8 +38,10 @@ export default function SignInPage() {
     if (error) {
       setIsGoogleLoading(false);
       toast.error(error);
+    } else {
+      toast.success("Signed in successfully!");
+      router.push("/");
     }
-    // If no error, the user is redirected to Google — don't reset loading
   };
 
   return (

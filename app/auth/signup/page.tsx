@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Cpu, Mail, Lock, Eye, EyeOff, UserPlus, Loader2 } from "lucide-react";
+import { Cpu, Mail, Lock, Eye, EyeOff, UserPlus, Loader2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 export default function SignUpPage() {
   const { signUpWithEmail, signInWithGoogle } = useAuth();
   const router = useRouter();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -22,7 +23,7 @@ export default function SignUpPage() {
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) return;
+    if (!email.trim() || !password.trim() || !fullName.trim()) return;
 
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
@@ -35,7 +36,7 @@ export default function SignUpPage() {
     }
 
     setIsLoading(true);
-    const { error } = await signUpWithEmail(email, password);
+    const { error } = await signUpWithEmail(email, password, fullName);
     setIsLoading(false);
     if (error) {
       toast.error(error);
@@ -51,6 +52,9 @@ export default function SignUpPage() {
     if (error) {
       setIsGoogleLoading(false);
       toast.error(error);
+    } else {
+      toast.success("Signed in successfully!");
+      router.push("/");
     }
   };
 
@@ -134,6 +138,18 @@ export default function SignUpPage() {
               className="space-y-4"
             >
               <div className="relative group">
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-accent transition-colors" />
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Full Name"
+                  required
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-background/50 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-all text-sm"
+                />
+              </div>
+
+              <div className="relative group">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-accent transition-colors" />
                 <input
                   type="email"
@@ -187,7 +203,7 @@ export default function SignUpPage() {
 
               <Button
                 type="submit"
-                disabled={isLoading || !email.trim() || !password.trim() || !confirmPassword.trim()}
+                disabled={isLoading || !fullName.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()}
                 className="w-full py-3 rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 font-medium text-sm transition-all duration-200 glow-accent"
               >
                 {isLoading ? (

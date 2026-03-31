@@ -8,7 +8,8 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -16,6 +17,7 @@ import {
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
+  updateProfile,
   type User,
 } from "firebase/auth";
 
@@ -23,7 +25,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUpWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -53,6 +55,24 @@ function getAuthErrorMessage(code: string): string {
   }
 }
 
+async function saveUserToFirestore(user: User, additionalData?: { displayName?: string }) {
+  if (!user) return;
+  const userRef = doc(db, "users", user.uid);
+  try {
+    const snapshot = await getDoc(userRef);
+    if (!snapshot.exists()) {
+      await setDoc(userRef, {
+        displayName: additionalData?.displayName || user.displayName || user.email?.split("@")[0] || "",
+        email: user.email,
+        plan: "free",
+        createdAt: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    console.error("Error saving user to Firestore", error);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,7 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
       try {
-        await signInWithEmailAndPassword(auth, email, password);
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        await saveUserToFirestore(result.user);
         return { error: null };
       } catch (err: any) {
         return { error: getAuthErrorMessage(err?.code) };
@@ -78,9 +99,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signUpWithEmail = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, fullName: string = "") => {
       try {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        if (fullName) {
+          await updateProfile(result.user, { displayName: fullName });
+        }
+        await saveUserToFirestore(result.user, { displayName: fullName });
         return { error: null };
       } catch (err: any) {
         return { error: getAuthErrorMessage(err?.code) };
@@ -92,7 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      await saveUserToFirestore(result.user);
       return { error: null };
     } catch (err: any) {
       return { error: getAuthErrorMessage(err?.code) };
