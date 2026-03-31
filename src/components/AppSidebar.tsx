@@ -43,7 +43,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
 import { useAuth } from "@/hooks/useAuth"
-import { db } from "@/lib/firebase"
+import { db, auth } from "@/lib/firebase"
 import { collection, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc } from "firebase/firestore"
 import { toast } from "sonner"
 
