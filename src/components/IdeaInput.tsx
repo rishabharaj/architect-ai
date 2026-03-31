@@ -22,10 +22,13 @@ const examples = [
 export function IdeaInput({ onSubmit, isLoading }: IdeaInputProps) {
   const [value, setValue] = useState("");
   const { user, signOut } = useAuth();
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleSubmit = () => {
     if (value.trim() && !isLoading) onSubmit(value.trim());
   };
+
+  const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
 
   return (
     <motion.div
@@ -33,17 +36,62 @@ export function IdeaInput({ onSubmit, isLoading }: IdeaInputProps) {
       animate={{ opacity: 1, y: 0 }}
       className="flex flex-col items-center justify-center min-h-screen px-4 relative pb-20"
     >
-      {/* Auth button — top right */}
+      {/* Auth area — top right */}
       <div className="absolute top-5 right-5 z-10">
         {user ? (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[150px]">{user.email}</span>
+          <div className="relative">
             <button
-              onClick={() => signOut()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card/60 backdrop-blur-sm text-xs text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:bg-card/80 hover:border-primary/30 transition-all group"
             >
-              <LogOut className="w-3.5 h-3.5" /> Sign Out
+              {user.user_metadata?.avatar_url ? (
+                <img
+                  src={user.user_metadata.avatar_url}
+                  alt="avatar"
+                  className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center">
+                  <span className="text-xs font-bold text-primary">{userName.charAt(0).toUpperCase()}</span>
+                </div>
+              )}
+              <span className="text-sm text-foreground hidden sm:inline max-w-[120px] truncate">{userName}</span>
             </button>
+
+            {/* Dropdown */}
+            {showUserMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden"
+                >
+                  <div className="px-4 py-3 border-b border-border flex items-center gap-3">
+                    {user.user_metadata?.avatar_url ? (
+                      <img src={user.user_metadata.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-primary">{userName.charAt(0).toUpperCase()}</span>
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{userName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="p-1.5">
+                    <button
+                      onClick={() => { signOut(); setShowUserMenu(false); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" /> Sign Out
+                    </button>
+                  </div>
+                </motion.div>
+              </>
+            )}
           </div>
         ) : (
           <Link href="/auth/signin">
@@ -61,9 +109,20 @@ export function IdeaInput({ onSubmit, isLoading }: IdeaInputProps) {
           Architect<span className="text-primary">AI</span>
         </h1>
       </div>
-      <p className="text-muted-foreground mb-8 text-center max-w-lg">
+      <p className="text-muted-foreground mb-2 text-center max-w-lg">
         Transform your startup idea into a complete technical architecture
       </p>
+      {user && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="text-sm text-primary/70 mb-6"
+        >
+          Welcome back, {userName} 👋
+        </motion.p>
+      )}
+      {!user && <div className="mb-6" />}
 
       <div className="w-full max-w-2xl">
         <div className="relative glow-primary rounded-lg">
