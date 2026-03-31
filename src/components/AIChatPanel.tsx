@@ -202,12 +202,17 @@ export function AIChatPanel({ idea, architecture, blueprintId }: AIChatPanelProp
 
   return (
     <>
-      <button
-        onClick={() => setOpen(!open)}
-        className="fixed bottom-5 right-5 z-50 w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg glow-primary hover:scale-105 transition-transform"
-      >
-        {open ? <X className="w-5 h-5" /> : <MessageCircle className="w-5 h-5" />}
-      </button>
+      <div className="fixed bottom-5 right-5 z-50 flex flex-col items-center gap-1">
+        {!open && (
+          <span className="text-[10px] font-semibold text-violet-400 tracking-wide">Chatbot</span>
+        )}
+        <button
+          onClick={() => setOpen(!open)}
+          className="w-12 h-12 rounded-full bg-violet-600 text-white flex items-center justify-center shadow-lg hover:bg-violet-500 hover:scale-105 transition-all"
+        >
+          {open ? <X className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+        </button>
+      </div>
 
       <AnimatePresence>
         {open && (

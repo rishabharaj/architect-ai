@@ -216,7 +216,8 @@ export function MCQPanel({ question, isLoading, completedCategories, onSelect, o
                 <Check className="w-6 h-6 text-primary" />
               </div>
               <p className="text-sm text-foreground font-medium">Architecture decisions complete!</p>
-              <p className="text-xs text-muted-foreground">View your blueprint on the right panel</p>
+              <p className="text-xs text-muted-foreground hidden md:block">View your blueprint on the right panel</p>
+              <p className="text-xs text-muted-foreground md:hidden">Tap the Blueprint button to view your selections</p>
             </motion.div>
           )}
         </AnimatePresence>

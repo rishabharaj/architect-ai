@@ -156,22 +156,6 @@ export function ArchitecturePanel({ idea, architecture, guide, isGeneratingGuide
         )}
       </div>
 
-      {phase === "complete" && !guide && (
-        <div className="p-4 border-t border-border">
-          <Button
-            onClick={onGenerateGuide}
-            disabled={isGeneratingGuide}
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            {isGeneratingGuide ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating Guide...</>
-            ) : (
-              <><BookOpen className="w-4 h-4 mr-2" />Generate Implementation Guide</>
-            )}
-          </Button>
-        </div>
-      )}
-
       {guide && (
         <div className="p-4 border-t border-border space-y-4">
           <div>
