@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { downloadMarkdown, downloadPDF } from "@/lib/exportBlueprint";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { ArchitectureEntry, GuideData } from "@/hooks/useArchitect";
 
@@ -29,7 +28,7 @@ const categoryIcons: Record<string, string> = {
 };
 
 export function ArchitecturePanel({ idea, architecture, guide, isGeneratingGuide, phase, onGenerateGuide, onPersistState }: ArchitecturePanelProps) {
-  const { user } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
 
   // Auto-trigger pending export after sign-in
   useEffect(() => {
@@ -53,12 +52,7 @@ export function ArchitecturePanel({ idea, architecture, guide, isGeneratingGuide
     if (pendingExportType) {
       try { sessionStorage.setItem("architect-ai-pending-export", pendingExportType); } catch {}
     }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
+    const { error } = await signInWithGoogle();
     if (error) {
       toast.error("Google login failed. Please try again.");
       console.error("Google login error:", error);

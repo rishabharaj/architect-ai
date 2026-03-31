@@ -40,10 +40,8 @@ export default function SignUpPage() {
     if (error) {
       toast.error(error);
     } else {
-      toast.success("Account created! Check your email to confirm.", {
-        duration: 5000,
-      });
-      router.push("/auth/signin");
+      toast.success("Account created successfully!");
+      router.push("/");
     }
   };
 

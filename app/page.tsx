@@ -82,9 +82,9 @@ export default function HomePage() {
                 className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 border border-primary/25 hover:border-primary/50 transition-colors"
                 title={user.email ?? "User"}
               >
-                {user.user_metadata?.avatar_url ? (
+                {user.photoURL ? (
                   <img
-                    src={user.user_metadata.avatar_url}
+                    src={user.photoURL}
                     alt="avatar"
                     className="w-8 h-8 rounded-full object-cover"
                   />

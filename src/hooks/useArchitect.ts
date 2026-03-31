@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { auth } from "@/lib/firebase";
 import { toast } from "sonner";
 
 const SESSION_KEY = "architect-ai-state";
@@ -120,7 +120,7 @@ export function useArchitect() {
     }
   }, [idea, architecture, completedCategories, remainingCategories, guide, phase, currentQuestion, blueprintId, customCategories]);
 
-  // Save blueprint to DB (authenticated users only)
+  // Save blueprint — placeholder for future Firestore integration
   const saveBlueprint = useCallback(async (
     currentIdea: string,
     currentArch: ArchitectureEntry[],
@@ -131,28 +131,11 @@ export function useArchitect() {
     currentBlueprintId: string | null,
   ) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return currentBlueprintId;
-
-      const payload = {
-        user_id: session.user.id,
-        idea: currentIdea,
-        architecture: currentArch as any,
-        completed_categories: currentCompleted as any,
-        remaining_categories: currentRemaining as any,
-        custom_categories: customCategories as any,
-        guide: currentGuide as any,
-        phase: currentPhase,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (currentBlueprintId) {
-        await supabase.from("blueprints").update(payload).eq("id", currentBlueprintId);
-        return currentBlueprintId;
-      } else {
-        const { data } = await supabase.from("blueprints").insert(payload).select("id").single();
-        return data?.id || null;
-      }
+      const currentUser = auth.currentUser;
+      if (!currentUser) return currentBlueprintId;
+      // TODO: Save to Firestore when ready
+      // For now, state is persisted via localStorage
+      return currentBlueprintId;
     } catch (err) {
       console.error("Failed to save blueprint:", err);
       return currentBlueprintId;
@@ -283,19 +266,11 @@ export function useArchitect() {
     try { localStorage.removeItem(SESSION_KEY); } catch {}
   }, []);
 
-  // Load saved blueprints (for authenticated users)
+  // Load saved blueprints — placeholder for future Firestore integration
   const loadBlueprint = useCallback(async (id: string) => {
-    const { data } = await supabase.from("blueprints").select("*").eq("id", id).single();
-    if (data) {
-      setIdea(data.idea);
-      setArchitecture(data.architecture as any || []);
-      setCompletedCategories(data.completed_categories as any || []);
-      setRemainingCategories(data.remaining_categories as any || []);
-      setCustomCategories(data.custom_categories as any || []);
-      setGuide(data.guide as any || null);
-      setPhase(data.phase as any || "input");
-      setBlueprintId(data.id);
-    }
+    // TODO: Load from Firestore when ready
+    // For now, state is persisted via localStorage
+    console.log("loadBlueprint called with id:", id);
   }, []);
 
   return {

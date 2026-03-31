@@ -28,7 +28,7 @@ export function IdeaInput({ onSubmit, isLoading }: IdeaInputProps) {
     if (value.trim() && !isLoading) onSubmit(value.trim());
   };
 
-  const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  const userName = user?.displayName || user?.email?.split("@")[0] || "User";
 
   return (
     <motion.div
@@ -44,9 +44,9 @@ export function IdeaInput({ onSubmit, isLoading }: IdeaInputProps) {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-border bg-card/60 backdrop-blur-sm hover:bg-card/80 hover:border-primary/30 transition-all group"
             >
-              {user.user_metadata?.avatar_url ? (
+              {user.photoURL ? (
                 <img
-                  src={user.user_metadata.avatar_url}
+                  src={user.photoURL}
                   alt="avatar"
                   className="w-7 h-7 rounded-full object-cover ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all"
                 />
@@ -69,8 +69,8 @@ export function IdeaInput({ onSubmit, isLoading }: IdeaInputProps) {
                   className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-border bg-card/95 backdrop-blur-xl shadow-2xl overflow-hidden"
                 >
                   <div className="px-4 py-3 border-b border-border flex items-center gap-3">
-                    {user.user_metadata?.avatar_url ? (
-                      <img src={user.user_metadata.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full object-cover" />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-primary/15 border border-primary/25 flex items-center justify-center shrink-0">
                         <span className="text-sm font-bold text-primary">{userName.charAt(0).toUpperCase()}</span>

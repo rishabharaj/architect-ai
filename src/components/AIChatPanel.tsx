@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
-import { supabase } from "@/integrations/supabase/client";
+import { auth } from "@/lib/firebase";
 import type { ArchitectureEntry } from "@/hooks/useArchitect";
 
 interface Message {
@@ -132,18 +132,14 @@ export function AIChatPanel({ idea, architecture, blueprintId }: AIChatPanelProp
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
   }, [messages]);
 
-  // Save a chat message to Supabase (fire-and-forget)
+  // Save a chat message (fire-and-forget) — placeholder for future DB integration
   const saveChatMessage = async (role: "user" | "assistant", content: string) => {
     if (!blueprintId) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      await supabase.from("chat_messages").insert({
-        blueprint_id: blueprintId,
-        user_id: session.user.id,
-        role,
-        content,
-      } as any);
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+      // TODO: Save to Firestore when ready
+      // For now we just check auth — no DB writes yet
     } catch {
       // Silent fail — chat saving shouldn't block UX
     }
