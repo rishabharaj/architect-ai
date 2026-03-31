@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, ChevronRight, Loader2, PenLine, Plus } from "lucide-react";
-import type { MCQuestion } from "@/hooks/useArchitect";
+import { Check, ChevronRight, Loader2, PenLine, Plus, BookOpen, FileCode, Download, ChevronDown } from "lucide-react";
+import type { MCQuestion, GuideData } from "@/hooks/useArchitect";
 
 interface MCQPanelProps {
   question: MCQuestion | null;
@@ -11,13 +11,22 @@ interface MCQPanelProps {
   completedCategories: string[];
   onSelect: (questionId: string, category: string, selection: string) => void;
   onAddCategory: (category: string) => void;
+  // Guided completion props
+  phase?: "input" | "deciding" | "complete";
+  guide?: GuideData | null;
+  isGeneratingGuide?: boolean;
+  onGenerateGuide?: () => void;
+  onViewBlueprint?: () => void;
+  onDownload?: (type: "md" | "pdf") => void;
+  architectureCount?: number;
 }
 
-export function MCQPanel({ question, isLoading, completedCategories, onSelect, onAddCategory }: MCQPanelProps) {
+export function MCQPanel({ question, isLoading, completedCategories, onSelect, onAddCategory, phase, guide, isGeneratingGuide, onGenerateGuide, onViewBlueprint, onDownload, architectureCount = 0 }: MCQPanelProps) {
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customValue, setCustomValue] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategory, setNewCategory] = useState("");
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
 
   const handleCustomSubmit = () => {
     if (!customValue.trim() || !question) return;
@@ -210,14 +219,135 @@ export function MCQPanel({ question, isLoading, completedCategories, onSelect, o
               key="complete"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center h-full gap-3"
+              className="flex flex-col items-center justify-center h-full gap-4"
             >
-              <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
-                <Check className="w-6 h-6 text-primary" />
+              {/* Success icon */}
+              <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                <Check className="w-7 h-7 text-primary" />
               </div>
-              <p className="text-sm text-foreground font-medium">Architecture decisions complete!</p>
-              <p className="text-xs text-muted-foreground hidden md:block">View your blueprint on the right panel</p>
-              <p className="text-xs text-muted-foreground md:hidden">Tap the Blueprint button to view your selections</p>
+              <div className="text-center">
+                <p className="text-base font-semibold text-foreground">Architecture decisions complete!</p>
+                <p className="text-xs text-muted-foreground mt-1">Follow the steps below to finish your blueprint</p>
+              </div>
+
+              {/* Guided steps */}
+              <div className="w-full max-w-sm space-y-3 mt-2">
+                {/* Step 1: Generate Guide */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="flex items-start gap-3"
+                >
+                  <div className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${guide ? 'bg-primary/15 text-primary border border-primary/30' : 'bg-primary text-primary-foreground'}`}>
+                    {guide ? <Check className="w-3.5 h-3.5" /> : '1'}
+                  </div>
+                  <div className="flex-1">
+                    {!guide ? (
+                      <button
+                        onClick={onGenerateGuide}
+                        disabled={isGeneratingGuide}
+                        className="w-full text-left p-3 rounded-lg border border-primary/40 bg-primary/5 hover:bg-primary/10 transition-all group disabled:opacity-70"
+                      >
+                        <div className="flex items-center gap-2">
+                          {isGeneratingGuide ? (
+                            <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                          ) : (
+                            <BookOpen className="w-4 h-4 text-primary" />
+                          )}
+                          <span className="text-sm font-medium text-foreground">
+                            {isGeneratingGuide ? 'Generating Guide...' : 'Generate Implementation Guide'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">Get project structure, steps & deployment guide</p>
+                      </button>
+                    ) : (
+                      <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium text-primary">Guide Generated ✓</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+
+                {/* Step 2: View Architecture */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="flex items-start gap-3"
+                >
+                  <div className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${guide ? 'bg-card border border-border text-foreground' : 'bg-card border border-border text-muted-foreground'}`}>
+                    2
+                  </div>
+                  <button
+                    onClick={onViewBlueprint}
+                    className={`flex-1 text-left p-3 rounded-lg border transition-all group ${architectureCount > 0 ? 'border-border hover:border-primary/40 bg-card hover:bg-primary/5' : 'border-border/50 bg-card/50 opacity-60'}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileCode className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium text-foreground">View Architecture Blueprint</span>
+                      {architectureCount > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-mono border border-primary/20 ml-auto">
+                          {architectureCount}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1">Review your tech stack decisions & guide</p>
+                  </button>
+                </motion.div>
+
+                {/* Step 3: Download */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="flex items-start gap-3"
+                >
+                  <div className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${guide ? 'bg-card border border-border text-foreground' : 'bg-card border border-border text-muted-foreground'}`}>
+                    3
+                  </div>
+                  <div className="flex-1">
+                    <button
+                      onClick={() => setShowDownloadOptions(!showDownloadOptions)}
+                      disabled={!guide}
+                      className={`w-full text-left p-3 rounded-lg border transition-all group ${guide ? 'border-border hover:border-primary/40 bg-card hover:bg-primary/5' : 'border-border/50 bg-card/50 opacity-60'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Download className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-foreground">Download Blueprint</span>
+                        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground ml-auto transition-transform ${showDownloadOptions ? 'rotate-180' : ''}`} />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1">Export as Markdown or PDF</p>
+                    </button>
+                    <AnimatePresence>
+                      {showDownloadOptions && guide && onDownload && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-2 flex gap-2"
+                        >
+                          <button
+                            onClick={() => onDownload("md")}
+                            className="flex-1 text-xs px-3 py-2 rounded-md border border-border bg-card hover:bg-secondary transition-colors text-foreground font-medium"
+                          >
+                            📄 Markdown
+                          </button>
+                          <button
+                            onClick={() => onDownload("pdf")}
+                            className="flex-1 text-xs px-3 py-2 rounded-md border border-border bg-card hover:bg-secondary transition-colors text-foreground font-medium"
+                          >
+                            📑 PDF
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

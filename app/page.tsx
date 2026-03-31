@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
+import { downloadMarkdown, downloadPDF } from "@/lib/exportBlueprint";
 
 export default function HomePage() {
   const {
@@ -25,6 +26,22 @@ export default function HomePage() {
   const handleAddCategory = (category: string) => {
     addCategory(category);
     toast.success(`"${category}" added to decision queue`);
+  };
+
+  const handleDownload = async (type: "md" | "pdf") => {
+    if (type === "md") downloadMarkdown(idea, architecture, guide);
+    else await downloadPDF(idea, architecture, guide);
+  };
+
+  const handleViewBlueprint = () => {
+    // On mobile: open the overlay. On desktop: scroll architecture panel into view
+    if (window.innerWidth < 768) {
+      setShowArchMobile(true);
+    } else {
+      // Desktop: architecture panel is always visible on the right
+      const archPanel = document.querySelector('[data-arch-panel]');
+      archPanel?.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   if (phase === "input") {
@@ -66,11 +83,18 @@ export default function HomePage() {
             completedCategories={completedCategories}
             onSelect={selectOption}
             onAddCategory={handleAddCategory}
+            phase={phase}
+            guide={guide}
+            isGeneratingGuide={isGeneratingGuide}
+            onGenerateGuide={generateGuide}
+            onViewBlueprint={handleViewBlueprint}
+            onDownload={handleDownload}
+            architectureCount={architecture.length}
           />
         </div>
 
         {/* Architecture Panel: hidden on mobile (shown via overlay), visible on desktop */}
-        <div className="hidden md:block md:h-full md:w-1/2 overflow-auto min-h-0 min-w-0">
+        <div data-arch-panel className="hidden md:block md:h-full md:w-1/2 overflow-auto min-h-0 min-w-0">
           <ArchitecturePanel
             idea={idea}
             architecture={architecture}
