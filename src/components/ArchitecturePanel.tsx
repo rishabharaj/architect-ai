@@ -87,16 +87,6 @@ export function ArchitecturePanel({ idea, architecture, guide, isGeneratingGuide
           <h3 className="text-sm font-semibold text-foreground">Architecture Blueprint</h3>
         </div>
         <div className="flex items-center gap-1">
-          {!user && (
-            <Button variant="ghost" size="sm" onClick={() => handleGoogleLogin()} className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground">
-              <LogIn className="w-3 h-3 mr-1" /> Sign in
-            </Button>
-          )}
-          {user && (
-            <span className="text-[10px] text-muted-foreground mr-1 hidden sm:inline truncate max-w-[100px]">
-              {user.email}
-            </span>
-          )}
           {architecture.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

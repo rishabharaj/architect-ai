@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 import { useArchitect } from "@/hooks/useArchitect";
+import { useAuth } from "@/hooks/useAuth";
 import { IdeaInput } from "@/components/IdeaInput";
 import { MCQPanel } from "@/components/MCQPanel";
 import { ArchitecturePanel } from "@/components/ArchitecturePanel";
 import { AIChatPanel } from "@/components/AIChatPanel";
-import { Cpu, RotateCcw, FileCode, X, Loader2, BookOpen } from "lucide-react";
+import { Cpu, RotateCcw, FileCode, X, Loader2, BookOpen, LogIn, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
 import { downloadMarkdown, downloadPDF } from "@/lib/exportBlueprint";
+import Link from "next/link";
 
 export default function HomePage() {
   const {
@@ -20,8 +22,10 @@ export default function HomePage() {
     analyzeIdea, selectOption, addCategory, generateGuide, reset,
     persistState, blueprintId,
   } = useArchitect();
+  const { user, signOut } = useAuth();
 
   const [showArchMobile, setShowArchMobile] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleAddCategory = (category: string) => {
     addCategory(category);
@@ -70,6 +74,49 @@ export default function HomePage() {
           <Button variant="ghost" size="sm" onClick={reset} className="text-xs text-muted-foreground hover:text-foreground shrink-0">
             <RotateCcw className="w-3 h-3 mr-1" /> Start Over
           </Button>
+          {/* User auth button */}
+          {user ? (
+            <div className="relative ml-1">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 border border-primary/25 hover:border-primary/50 transition-colors"
+                title={user.email ?? "User"}
+              >
+                {user.user_metadata?.avatar_url ? (
+                  <img
+                    src={user.user_metadata.avatar_url}
+                    alt="avatar"
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="w-4 h-4 text-primary" />
+                )}
+              </button>
+              {showUserMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                  <div className="absolute right-0 top-10 z-50 w-56 rounded-xl border border-border bg-card shadow-2xl p-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="px-3 py-2 border-b border-border mb-1">
+                      <p className="text-xs text-muted-foreground">Signed in as</p>
+                      <p className="text-sm text-foreground font-medium truncate">{user.email}</p>
+                    </div>
+                    <button
+                      onClick={() => { signOut(); setShowUserMenu(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" /> Sign Out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <Link href="/auth/signin">
+              <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary/80 shrink-0 ml-1">
+                <LogIn className="w-3 h-3 mr-1" /> Sign In
+              </Button>
+            </Link>
+          )}
         </div>
       </header>
 

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Cpu, ArrowRight, Sparkles, Github, Linkedin, Heart } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Cpu, ArrowRight, Sparkles, Github, Linkedin, Heart, LogIn, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 interface IdeaInputProps {
   onSubmit: (idea: string) => void;
@@ -19,6 +21,7 @@ const examples = [
 
 export function IdeaInput({ onSubmit, isLoading }: IdeaInputProps) {
   const [value, setValue] = useState("");
+  const { user, signOut } = useAuth();
 
   const handleSubmit = () => {
     if (value.trim() && !isLoading) onSubmit(value.trim());
@@ -30,6 +33,28 @@ export function IdeaInput({ onSubmit, isLoading }: IdeaInputProps) {
       animate={{ opacity: 1, y: 0 }}
       className="flex flex-col items-center justify-center min-h-screen px-4 relative pb-20"
     >
+      {/* Auth button — top right */}
+      <div className="absolute top-5 right-5 z-10">
+        {user ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[150px]">{user.email}</span>
+            <button
+              onClick={() => signOut()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card/60 backdrop-blur-sm text-xs text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Sign Out
+            </button>
+          </div>
+        ) : (
+          <Link href="/auth/signin">
+            <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border bg-card/60 backdrop-blur-sm text-sm text-foreground hover:border-primary/40 hover:bg-card/80 transition-all group">
+              <LogIn className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              <span>Sign In</span>
+            </button>
+          </Link>
+        )}
+      </div>
+
       <div className="flex items-center gap-3 mb-2">
         <Cpu className="w-8 h-8 text-primary" />
         <h1 className="text-4xl font-bold tracking-tight text-foreground">

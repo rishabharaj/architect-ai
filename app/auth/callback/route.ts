@@ -6,9 +6,8 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get("code");
 
   // Redirect to root WITH the code preserved in the URL.
-  // The client-side Supabase JS will detect the code param
+  // The client-side Supabase JS (in AuthProvider) will detect the code param
   // and exchange it for a session using the stored PKCE code_verifier.
-  // We do NOT exchange it here because the server doesn't have the code_verifier.
   const redirectUrl = new URL("/", request.url);
   if (code) {
     redirectUrl.searchParams.set("code", code);
