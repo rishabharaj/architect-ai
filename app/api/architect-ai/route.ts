@@ -82,14 +82,43 @@ async function deduplicatedCall(key: string, fn: () => Promise<any>): Promise<an
   return promise;
 }
 
-// ── Reliability: Retry with exponential backoff ──────────────────────
+// ── API Key Management & Reliability: Smart 429 Fallback + Round Robin ──
+let groqApiKeys: string[] = [];
+let currentKeyIndex = 0;
+
+function initializeKeys() {
+  if (groqApiKeys.length === 0) {
+    const rawKeys = process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || "";
+    groqApiKeys = rawKeys.split(",").map((k) => k.trim()).filter(Boolean);
+    if (groqApiKeys.length === 0) {
+      throw new Error("GROQ_API_KEYS not configured in environment.");
+    }
+  }
+}
+
+function rotateKey() {
+  initializeKeys();
+  currentKeyIndex = (currentKeyIndex + 1) % groqApiKeys.length;
+  console.log(`Rotated Groq API key to index ${currentKeyIndex}`);
+}
+
+function getCurrentKey() {
+  initializeKeys();
+  return groqApiKeys[currentKeyIndex];
+}
+
 const RETRY_DELAYS_MS = [1000, 2000, 4000];
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+async function withRetry<T>(fn: (apiKey: string) => Promise<T>, maxRetries = 3): Promise<T> {
+  initializeKeys();
   let lastError: Error | null = null;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+  const totalAttempts = Math.max(maxRetries, groqApiKeys.length * 2);
+  let sequential429s = 0;
+
+  for (let attempt = 0; attempt <= totalAttempts; attempt++) {
+    const currentKey = getCurrentKey();
     try {
-      return await fn();
+      return await fn(currentKey);
     } catch (err: any) {
       lastError = err;
       const isRateLimit =
@@ -97,14 +126,36 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
         err?.message?.includes("429") ||
         err?.message?.includes("rate_limit") ||
         err?.message?.includes("Too Many Requests");
-      if (!isRateLimit || attempt === maxRetries) {
-        throw err;
+
+      if (isRateLimit) {
+        sequential429s++;
+        rotateKey();
+
+        if (sequential429s >= groqApiKeys.length) {
+          const delayIndex = Math.min(
+            Math.floor(sequential429s / groqApiKeys.length) - 1,
+            RETRY_DELAYS_MS.length - 1
+          );
+          const baseDelay = RETRY_DELAYS_MS[Math.max(0, delayIndex)];
+          const jitter = Math.random() * 1000;
+          const delay = baseDelay + jitter;
+          console.log(`All keys rate-limited. Waiting ${Math.round(delay / 1000)}s before retry.`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          // small pause before trying the next key
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        continue;
       }
-      const baseDelay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
-      const jitter = Math.random() * 1000;
-      const delay = baseDelay + jitter;
-      console.log(`Rate limited. Waiting ${Math.round(delay / 1000)}s before retry ${attempt + 1}/${maxRetries}`);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      // If it's a server error or timeout, standard backoff
+      if (attempt < maxRetries) {
+        const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+        await new Promise((resolve) => setTimeout(resolve, delay + Math.random() * 500));
+        continue;
+      }
+
+      throw err;
     }
   }
   throw lastError;
@@ -160,9 +211,6 @@ async function callGroqWithTools(
   userPrompt: string,
   jsonSchema: string,
 ): Promise<any> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY not configured");
-
   const fullSystemPrompt = `${systemPrompt}
 
 You MUST respond with valid JSON matching this exact schema:
@@ -173,7 +221,7 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
   await acquireSlot();
   try {
     await paceRequest();
-    const result = await withRetry(async () => {
+    const result = await withRetry(async (apiKey) => {
       const response = await fetch(GROQ_API_URL, {
         method: "POST",
         headers: {
@@ -226,9 +274,6 @@ async function streamGroqChat(
   history: Array<{ role: string; content: string }>,
   message: string,
 ): Promise<ReadableStream> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY not configured");
-
   const messages = [
     { role: "system", content: systemPrompt },
     ...history.map((m) => ({
@@ -241,7 +286,7 @@ async function streamGroqChat(
   await acquireSlot();
   try {
     await paceRequest();
-    const res = await withRetry(async () => {
+    const res = await withRetry(async (apiKey) => {
       const response = await fetch(GROQ_API_URL, {
         method: "POST",
         headers: {
