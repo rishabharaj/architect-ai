@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // ── Config ───────────────────────────────────────────────────────────
-const GROQ_MODEL = "llama-3.1-8b-instant";
+const GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 // ── Reliability: Global request pacer ────────────────────────────────
