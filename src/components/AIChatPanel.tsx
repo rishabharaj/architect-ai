@@ -208,7 +208,7 @@ export function AIChatPanel({ idea, architecture, blueprintId }: AIChatPanelProp
       const snapshot = assistantSoFar;
       setMessages((prev) => {
         const last = prev[prev.length - 1];
-        let nextMsgs;
+        let nextMsgs: Message[];
         if (last?.role === "assistant") {
           nextMsgs = prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: snapshot } : m));
         } else {
