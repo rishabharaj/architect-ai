@@ -7,7 +7,7 @@ import { IdeaInput } from "@/components/IdeaInput";
 import { MCQPanel } from "@/components/MCQPanel";
 import { ArchitecturePanel } from "@/components/ArchitecturePanel";
 import { AIChatPanel } from "@/components/AIChatPanel";
-import { Cpu, RotateCcw, FileCode, X, Loader2, BookOpen, LogIn, LogOut, User, PanelLeft } from "lucide-react";
+import { Cpu, RotateCcw, FileCode, X, Loader2, BookOpen, LogIn, LogOut, User, PanelLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KnowledgeBasePanel } from "@/components/KnowledgeBasePanel";
 import { toast } from "sonner";
@@ -60,7 +60,17 @@ export default function HomePage() {
         />
         <SidebarInset className="bg-transparent h-screen flex flex-col min-w-0">
           <div className="absolute top-4 left-4 z-50">
-            <SidebarTrigger className="w-8 h-8 bg-card border border-border shadow-sm text-foreground hover:text-accent flex items-center justify-center transition-colors rounded-md" />
+            {user ? (
+              <SidebarTrigger className="w-8 h-8 bg-card border border-border shadow-sm text-foreground hover:text-accent flex items-center justify-center transition-colors rounded-md" />
+            ) : (
+              <div className="md:hidden">
+                <Link href="/auth/signin">
+                  <Button variant="outline" size="sm" className="h-8 bg-card border-border shadow-sm text-foreground hover:text-accent flex items-center justify-center text-xs">
+                    <LogIn className="w-3 h-3 mr-2" /> Sign In
+                  </Button>
+                </Link>
+              </div>
+            )}
           </div>
           <div className="flex-1 overflow-auto grid-bg relative">
             <IdeaInput onSubmit={analyzeIdea} isLoading={isAnalyzing} />
@@ -81,7 +91,17 @@ export default function HomePage() {
         {/* Header */}
         <header className="h-12 border-b border-border flex items-center justify-between px-4 bg-card/80 backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-2">
-            <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors mr-1" />
+            {user ? (
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors mr-1" />
+            ) : (
+              <div className="md:hidden">
+                <Link href="/auth/signin">
+                  <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary/80 shrink-0 mr-1 p-0 px-2 h-8">
+                    <LogIn className="w-4 h-4 mr-1.5" /> Sign In
+                  </Button>
+                </Link>
+              </div>
+            )}
             <Cpu className="w-5 h-5 text-primary hidden sm:block" />
             <span className="text-sm font-bold text-foreground">
               Architect<span className="text-primary">AI</span>
@@ -93,15 +113,16 @@ export default function HomePage() {
         <div className="flex items-center gap-1">
           <KnowledgeBasePanel />
           <Button variant="ghost" size="sm" onClick={reset} className="text-xs text-muted-foreground hover:text-foreground shrink-0">
-            <RotateCcw className="w-3 h-3 mr-1" /> Start Over
+            <Plus className="w-3 h-3 mr-1" /> Start New
           </Button>
-          {/* User auth button */}
           {!user && (
-            <Link href="/auth/signin">
-              <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary/80 shrink-0 ml-1">
-                <LogIn className="w-3 h-3 mr-1" /> Sign In
-              </Button>
-            </Link>
+            <div className="hidden md:block">
+              <Link href="/auth/signin">
+                <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary/80 shrink-0 ml-1">
+                  <LogIn className="w-3 h-3 mr-1" /> Sign In
+                </Button>
+              </Link>
+            </div>
           )}
         </div>
       </header>
