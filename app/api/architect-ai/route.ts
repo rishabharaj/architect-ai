@@ -82,29 +82,64 @@ async function deduplicatedCall(key: string, fn: () => Promise<any>): Promise<an
   return promise;
 }
 
-// ── API Key Management & Reliability: Smart 429 Fallback + Round Robin ──
-let groqApiKeys: string[] = [];
-let currentKeyIndex = 0;
+// ── API Key Management & Reliability: Least Connections + Cooldown ──────
+type KeyState = {
+  key: string;
+  activeRequests: number;
+  lastUsedAt: number;
+  cooldownUntil: number;
+};
+
+let keyStates: KeyState[] = [];
 
 function initializeKeys() {
-  if (groqApiKeys.length === 0) {
+  if (keyStates.length === 0) {
     const rawKeys = process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || "";
-    groqApiKeys = rawKeys.split(",").map((k) => k.trim()).filter(Boolean);
-    if (groqApiKeys.length === 0) {
+    const splitKeys = rawKeys.split(",").map((k) => k.trim()).filter(Boolean);
+    if (splitKeys.length === 0) {
       throw new Error("GROQ_API_KEYS not configured in environment.");
     }
+    keyStates = splitKeys.map((k) => ({
+      key: k,
+      activeRequests: 0,
+      lastUsedAt: 0,
+      cooldownUntil: 0,
+    }));
   }
 }
 
-function rotateKey() {
+function acquireBestKey(): KeyState {
   initializeKeys();
-  currentKeyIndex = (currentKeyIndex + 1) % groqApiKeys.length;
-  console.log(`Rotated Groq API key to index ${currentKeyIndex}`);
+  const now = Date.now();
+  
+  // 1. Filter out keys that are currently in cooldown
+  let available = keyStates.filter((k) => now >= k.cooldownUntil);
+  
+  // If all keys are in cooldown, we'll wait or pick the one that unlocks earliest
+  if (available.length === 0) {
+    available = [...keyStates].sort((a, b) => a.cooldownUntil - b.cooldownUntil);
+  } else {
+    // 2. Sort available keys by Least Active Requests first, then Least Recently Used (LRU)
+    available.sort((a, b) => {
+      if (a.activeRequests !== b.activeRequests) {
+        return a.activeRequests - b.activeRequests;
+      }
+      return a.lastUsedAt - b.lastUsedAt;
+    });
+  }
+
+  const bestKey = available[0];
+  bestKey.activeRequests++;
+  bestKey.lastUsedAt = now;
+  return bestKey;
 }
 
-function getCurrentKey() {
-  initializeKeys();
-  return groqApiKeys[currentKeyIndex];
+function releaseKey(state: KeyState, isRateLimited: boolean) {
+  state.activeRequests = Math.max(0, state.activeRequests - 1);
+  if (isRateLimited) {
+    // Put strictly on cooldown for 15 seconds so we don't bombard it
+    state.cooldownUntil = Date.now() + 15000;
+  }
 }
 
 const RETRY_DELAYS_MS = [1000, 2000, 4000];
@@ -112,13 +147,25 @@ const RETRY_DELAYS_MS = [1000, 2000, 4000];
 async function withRetry<T>(fn: (apiKey: string) => Promise<T>, maxRetries = 3): Promise<T> {
   initializeKeys();
   let lastError: Error | null = null;
-  const totalAttempts = Math.max(maxRetries, groqApiKeys.length * 2);
-  let sequential429s = 0;
+  // If we have 8 keys, allow up to 16 attempts total (e.g., trying each key twice if needed)
+  const totalAttempts = Math.max(maxRetries, keyStates.length * 2);
 
   for (let attempt = 0; attempt <= totalAttempts; attempt++) {
-    const currentKey = getCurrentKey();
+    const keyState = acquireBestKey();
+    const now = Date.now();
+
+    // If even the "best" key is STILL in cooldown, it means ALL keys have hit rate limits.
+    // Wait until this key unlocks.
+    if (keyState.cooldownUntil > now) {
+      const waitTime = keyState.cooldownUntil - now;
+      console.log(`All API keys are in cooldown. Waiting ${Math.round(waitTime / 1000)}s...`);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+
     try {
-      return await fn(currentKey);
+      const result = await fn(keyState.key);
+      releaseKey(keyState, false);
+      return result;
     } catch (err: any) {
       lastError = err;
       const isRateLimit =
@@ -127,28 +174,16 @@ async function withRetry<T>(fn: (apiKey: string) => Promise<T>, maxRetries = 3):
         err?.message?.includes("rate_limit") ||
         err?.message?.includes("Too Many Requests");
 
-      if (isRateLimit) {
-        sequential429s++;
-        rotateKey();
+      releaseKey(keyState, isRateLimit);
 
-        if (sequential429s >= groqApiKeys.length) {
-          const delayIndex = Math.min(
-            Math.floor(sequential429s / groqApiKeys.length) - 1,
-            RETRY_DELAYS_MS.length - 1
-          );
-          const baseDelay = RETRY_DELAYS_MS[Math.max(0, delayIndex)];
-          const jitter = Math.random() * 1000;
-          const delay = baseDelay + jitter;
-          console.log(`All keys rate-limited. Waiting ${Math.round(delay / 1000)}s before retry.`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        } else {
-          // small pause before trying the next key
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
+      if (isRateLimit) {
+        console.log(`Key rate-limited. Smart fallback to next free key... (Attempt ${attempt + 1}/${totalAttempts})`);
+        // Small structural delay before instantly querying the newly assigned key
+        await new Promise((resolve) => setTimeout(resolve, 150));
         continue;
       }
 
-      // If it's a server error or timeout, standard backoff
+      // Standard server errors get standard backoff 
       if (attempt < maxRetries) {
         const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
         await new Promise((resolve) => setTimeout(resolve, delay + Math.random() * 500));
