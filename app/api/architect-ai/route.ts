@@ -4,6 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 const GROQ_MODEL = "llama-3.1-8b-instant";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+const OPENROUTER_MODEL = "meta-llama/llama-3.1-8b-instruct";
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+const OPENAI_MODEL = "gpt-4o-mini";
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+
 // ── Reliability: Global request pacer ────────────────────────────────
 // Groq has generous rate limits, but we still pace to be safe
 const MIN_REQUEST_GAP_MS = 500;
@@ -94,10 +100,16 @@ let keyStates: KeyState[] = [];
 
 function initializeKeys() {
   if (keyStates.length === 0) {
-    const rawKeys = process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || "";
-    const splitKeys = rawKeys.split(",").map((k) => k.trim()).filter(Boolean);
+    const rawGroq = process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || "";
+    const rawOr = process.env.OPENROUTER_API_KEYS || process.env.OPENROUTER_API_KEY || "";
+    const rawOai = process.env.OPENAI_API_KEYS || process.env.OPENAI_API_KEY || "";
+    const groqKeys = rawGroq.split(",").map((k) => k.trim()).filter(Boolean);
+    const orKeys = rawOr.split(",").map((k) => k.trim()).filter(Boolean);
+    const oaiKeys = rawOai.split(",").map((k) => k.trim()).filter(Boolean);
+    
+    const splitKeys = [...groqKeys, ...orKeys, ...oaiKeys];
     if (splitKeys.length === 0) {
-      throw new Error("GROQ_API_KEYS not configured in environment.");
+      throw new Error("No API keys configured in environment.");
     }
     keyStates = splitKeys.map((k) => ({
       key: k,
@@ -255,14 +267,23 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
   try {
     await paceRequest();
     const result = await withRetry(async (apiKey) => {
-      const response = await fetch(GROQ_API_URL, {
+      let apiUrl = GROQ_API_URL;
+      let model = GROQ_MODEL;
+      if (apiKey.startsWith("sk-or")) {
+        apiUrl = OPENROUTER_API_URL;
+        model = OPENROUTER_MODEL;
+      } else if (apiKey.startsWith("sk-")) {
+        apiUrl = OPENAI_API_URL;
+        model = OPENAI_MODEL;
+      }
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: GROQ_MODEL,
+          model: model,
           messages: [
             { role: "system", content: fullSystemPrompt },
             { role: "user", content: userPrompt },
@@ -320,14 +341,23 @@ async function streamGroqChat(
   try {
     await paceRequest();
     const res = await withRetry(async (apiKey) => {
-      const response = await fetch(GROQ_API_URL, {
+      let apiUrl = GROQ_API_URL;
+      let model = GROQ_MODEL;
+      if (apiKey.startsWith("sk-or")) {
+        apiUrl = OPENROUTER_API_URL;
+        model = OPENROUTER_MODEL;
+      } else if (apiKey.startsWith("sk-")) {
+        apiUrl = OPENAI_API_URL;
+        model = OPENAI_MODEL;
+      }
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: GROQ_MODEL,
+          model: model,
           messages,
           stream: true,
           temperature: 0.5,
