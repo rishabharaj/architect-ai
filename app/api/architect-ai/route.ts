@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // ── Config ───────────────────────────────────────────────────────────
-const GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+const GROQ_MODEL = "llama-3.1-8b-instant";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 // ── Reliability: Global request pacer ────────────────────────────────
@@ -177,10 +177,8 @@ async function withRetry<T>(fn: (apiKey: string) => Promise<T>, maxRetries = 3):
       releaseKey(keyState, isRateLimit);
 
       if (isRateLimit) {
-        console.log(`Key rate-limited. Smart fallback to next free key... (Attempt ${attempt + 1}/${totalAttempts})`);
-        // Small structural delay before instantly querying the newly assigned key
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        continue;
+        console.log(`Rate limit reached on this key.`);
+        throw new Error("Rate limit exceeded. Please wait a moment and try again.");
       }
 
       // Standard server errors get standard backoff 
