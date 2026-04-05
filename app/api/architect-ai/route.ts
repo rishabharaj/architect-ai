@@ -290,7 +290,7 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
           ],
           response_format: { type: "json_object" },
           temperature: 0.5,
-          max_tokens: 4096,
+          max_tokens: 1024,
         }),
       });
 
@@ -361,7 +361,7 @@ async function streamGroqChat(
           messages,
           stream: true,
           temperature: 0.5,
-          max_tokens: 2048,
+          max_tokens: 1024,
         }),
       });
 
