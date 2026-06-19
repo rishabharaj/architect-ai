@@ -22,17 +22,22 @@ export function generateMarkdown(idea: string, architecture: ArchitectureEntry[]
   }
 
   if (guide) {
-    md += `\n## Project Structure\n\n\`\`\`\n${guide.projectStructure.join("\n")}\n\`\`\`\n`;
+    const projectStructure = guide.projectStructure || [];
+    const implementationSteps = guide.implementationSteps || [];
+    const envVars = guide.envVars || [];
+    const deploymentSteps = guide.deploymentSteps || [];
+
+    md += `\n## Project Structure\n\n\`\`\`\n${projectStructure.join("\n")}\n\`\`\`\n`;
     md += `\n## Implementation Steps\n\n`;
-    for (const s of guide.implementationSteps) {
-      md += `${s.step}. **${s.title}** — ${s.description}\n`;
+    for (const s of implementationSteps) {
+      md += `${s.step || ""}. **${s.title || ""}** — ${s.description || ""}\n`;
     }
-    if (guide.envVars.length > 0) {
-      md += `\n## Environment Variables\n\n\`\`\`env\n${guide.envVars.join("\n")}\n\`\`\`\n`;
+    if (envVars.length > 0) {
+      md += `\n## Environment Variables\n\n\`\`\`env\n${envVars.join("\n")}\n\`\`\`\n`;
     }
-    if (guide.deploymentSteps.length > 0) {
+    if (deploymentSteps.length > 0) {
       md += `\n## Deployment\n\n`;
-      guide.deploymentSteps.forEach((s, i) => { md += `${i + 1}. ${s}\n`; });
+      deploymentSteps.forEach((s, i) => { md += `${i + 1}. ${s}\n`; });
     }
   }
 
@@ -87,15 +92,23 @@ function buildHTMLForPDF(idea: string, architecture: ArchitectureEntry[], guide:
   html += `</table>`;
 
   if (guide) {
-    html += `<h2 style="font-size:16px;margin-bottom:8px">Project Structure</h2>`;
-    html += `<pre style="background:#f5f5fa;padding:12px;border-radius:6px;font-size:11px;overflow:auto">${guide.projectStructure.join("\n")}</pre>`;
-    html += `<h2 style="font-size:16px;margin:16px 0 8px">Implementation Steps</h2>`;
-    for (const s of guide.implementationSteps) {
-      html += `<p style="font-size:12px;margin:4px 0"><strong>${s.step}. ${s.title}</strong> — ${s.description}</p>`;
+    const projectStructure = guide.projectStructure || [];
+    const implementationSteps = guide.implementationSteps || [];
+    const envVars = guide.envVars || [];
+
+    if (projectStructure.length > 0) {
+      html += `<h2 style="font-size:16px;margin-bottom:8px">Project Structure</h2>`;
+      html += `<pre style="background:#f5f5fa;padding:12px;border-radius:6px;font-size:11px;overflow:auto">${projectStructure.join("\n")}</pre>`;
     }
-    if (guide.envVars.length > 0) {
+    if (implementationSteps.length > 0) {
+      html += `<h2 style="font-size:16px;margin:16px 0 8px">Implementation Steps</h2>`;
+      for (const s of implementationSteps) {
+        html += `<p style="font-size:12px;margin:4px 0"><strong>${s.step || ""}. ${s.title || ""}</strong> — ${s.description || ""}</p>`;
+      }
+    }
+    if (envVars.length > 0) {
       html += `<h2 style="font-size:16px;margin:16px 0 8px">Environment Variables</h2>`;
-      html += `<pre style="background:#f5f5fa;padding:12px;border-radius:6px;font-size:11px">${guide.envVars.join("\n")}</pre>`;
+      html += `<pre style="background:#f5f5fa;padding:12px;border-radius:6px;font-size:11px">${envVars.join("\n")}</pre>`;
     }
   }
 

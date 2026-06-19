@@ -142,35 +142,39 @@ export function ArchitecturePanel({ idea, architecture, guide, isGeneratingGuide
 
       {guide && (
         <div className="p-4 border-t border-border space-y-4">
-          <div>
-            <h4 className="text-xs font-mono uppercase tracking-widest text-primary mb-2 flex items-center gap-2">
-              <Rocket className="w-3 h-3" /> Project Structure
-            </h4>
-            <div className="bg-secondary/50 rounded-md p-3 font-mono text-xs text-foreground space-y-0.5">
-              {guide.projectStructure.map((p) => <div key={p}>{p}</div>)}
+          {(guide.projectStructure || []).length > 0 && (
+            <div>
+              <h4 className="text-xs font-mono uppercase tracking-widest text-primary mb-2 flex items-center gap-2">
+                <Rocket className="w-3 h-3" /> Project Structure
+              </h4>
+              <div className="bg-secondary/50 rounded-md p-3 font-mono text-xs text-foreground space-y-0.5">
+                {(guide.projectStructure || []).map((p) => <div key={p}>{p}</div>)}
+              </div>
             </div>
-          </div>
-          <div>
-            <h4 className="text-xs font-mono uppercase tracking-widest text-primary mb-2">Implementation Steps</h4>
-            <div className="space-y-2">
-              {guide.implementationSteps.map((s) => (
-                <div key={s.step} className="flex gap-3 items-start">
-                  <span className="text-[10px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
-                    {s.step}
-                  </span>
-                  <div>
-                    <p className="text-xs font-medium text-foreground">{s.title}</p>
-                    <p className="text-[11px] text-muted-foreground">{s.description}</p>
+          )}
+          {(guide.implementationSteps || []).length > 0 && (
+            <div>
+              <h4 className="text-xs font-mono uppercase tracking-widest text-primary mb-2">Implementation Steps</h4>
+              <div className="space-y-2">
+                {(guide.implementationSteps || []).map((s) => (
+                  <div key={s.step || s.title} className="flex gap-3 items-start">
+                    <span className="text-[10px] font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20 shrink-0">
+                      {s.step}
+                    </span>
+                    <div>
+                      <p className="text-xs font-medium text-foreground">{s.title}</p>
+                      <p className="text-[11px] text-muted-foreground">{s.description}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-          {guide.envVars.length > 0 && (
+          )}
+          {(guide.envVars || []).length > 0 && (
             <div>
               <h4 className="text-xs font-mono uppercase tracking-widest text-primary mb-2">Environment Variables</h4>
               <div className="bg-secondary/50 rounded-md p-3 font-mono text-[11px] text-accent space-y-0.5">
-                {guide.envVars.map((v) => <div key={v}>{v}</div>)}
+                {(guide.envVars || []).map((v) => <div key={v}>{v}</div>)}
               </div>
             </div>
           )}
