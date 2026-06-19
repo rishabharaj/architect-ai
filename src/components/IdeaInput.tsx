@@ -36,18 +36,6 @@ export function IdeaInput({ onSubmit, isLoading }: IdeaInputProps) {
       animate={{ opacity: 1, y: 0 }}
       className="flex flex-col items-center justify-center min-h-screen px-4 relative pb-20"
     >
-      {/* Auth area — top right */}
-      <div className="absolute top-5 right-5 z-10 hidden md:block">
-        {!user && (
-          <Link href="/auth/signin">
-            <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border bg-card/60 backdrop-blur-sm text-sm text-foreground hover:border-primary/40 hover:bg-card/80 transition-all group">
-              <LogIn className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              <span>Sign In</span>
-            </button>
-          </Link>
-        )}
-      </div>
-
       <div className="flex items-center gap-3 mb-2">
         <Cpu className="w-8 h-8 text-primary" />
         <h1 className="text-4xl font-bold tracking-tight text-foreground">
