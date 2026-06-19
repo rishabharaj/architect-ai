@@ -61,10 +61,10 @@ export default function HomePage() {
         <SidebarInset className="bg-transparent h-screen flex flex-col min-w-0">
           <div className="absolute top-4 left-4 z-50">
             {user ? (
-              <SidebarTrigger className="w-8 h-8 bg-card border border-border shadow-sm text-foreground hover:text-accent flex items-center justify-center transition-colors rounded-md" />
+              <SidebarTrigger className="w-8 h-8 bg-card border border-border shadow-sm text-muted-foreground hover:text-foreground hover:bg-card/90 flex items-center justify-center transition-colors rounded-md" />
             ) : (
               <Link href="/auth/signin">
-                <Button variant="outline" size="sm" className="h-7 sm:h-8 bg-card border-border shadow-sm text-foreground hover:text-accent flex items-center justify-center text-[10px] sm:text-xs px-2 sm:px-3">
+                <Button variant="outline" size="sm" className="h-7 sm:h-8 bg-card border-border shadow-sm text-foreground hover:text-primary hover:border-primary/30 flex items-center justify-center text-[10px] sm:text-xs px-2 sm:px-3">
                   <LogIn className="w-3 h-3 mr-1.5" /> Sign In
                 </Button>
               </Link>

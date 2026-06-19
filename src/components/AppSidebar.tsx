@@ -192,14 +192,14 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
             <SidebarGroupContent>
               {chats.length === 0 ? (
                 <div className="px-4 py-6 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
-                   <Cpu className="size-6 text-muted-foreground/30" />
-                   No past architectures found.
+                  <Cpu className="size-6 text-muted-foreground/30" />
+                  No past architectures found.
                 </div>
               ) : (
                 <SidebarMenu>
                   {chats.map((chat) => (
                     <SidebarMenuItem key={chat.id}>
-                      <SidebarMenuButton 
+                      <SidebarMenuButton
                         isActive={currentBlueprintId === chat.id}
                         onClick={() => onSelectBlueprint(chat.id)}
                         tooltip={chat.name}
@@ -275,8 +275,8 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Input 
-              value={newName} 
+            <Input
+              value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleRename(); }}
               className="bg-background/50 border-border text-foreground"
@@ -316,21 +316,21 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
 
           {/* Actions */}
           <div className="flex flex-col gap-2.5 w-full">
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={async () => {
                 setShowSignOutConfirm(false);
                 await auth?.signOut();
                 toast.success("Signed out successfully");
-              }} 
+              }}
               className="h-10 w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground drop-shadow-md font-medium"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowSignOutConfirm(false)} 
+            <Button
+              variant="outline"
+              onClick={() => setShowSignOutConfirm(false)}
               className="h-10 w-full text-foreground border-border hover:bg-secondary"
             >
               Cancel
