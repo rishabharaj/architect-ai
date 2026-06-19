@@ -11,6 +11,7 @@ import {
   LogOut,
   User as UserIcon,
   ChevronDown,
+  PanelLeftClose,
 } from "lucide-react"
 
 import {
@@ -24,6 +25,7 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
@@ -57,6 +59,21 @@ interface Chat {
   id: string;
   name: string;
   createdAt: string;
+}
+
+// Small close/back button for the sidebar
+function SidebarCloseButton() {
+  const { toggleSidebar } = useSidebar();
+  return (
+    <button
+      onClick={toggleSidebar}
+      className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors w-full border-b border-border/50"
+      aria-label="Close sidebar"
+    >
+      <PanelLeftClose className="w-4 h-4" />
+      <span>Back</span>
+    </button>
+  );
 }
 
 export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBlueprint }: AppSidebarProps) {
@@ -122,6 +139,8 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
     <>
       <Sidebar variant="inset" className="border-r border-border dark">
         <SidebarHeader className="bg-card border-b border-border p-0">
+          {/* Close / Back button row */}
+          <SidebarCloseButton />
           {/* Compact profile row */}
           <button
             onClick={() => setProfileExpanded(!profileExpanded)}
