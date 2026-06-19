@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 // ── Config ───────────────────────────────────────────────────────────
 const GROQ_MODEL = "llama-3.1-8b-instant";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
