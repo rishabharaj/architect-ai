@@ -59,7 +59,7 @@ function getAuthErrorMessage(code: string): string {
 }
 
 async function saveUserToFirestore(user: User, additionalData?: { displayName?: string }) {
-  if (!user) return;
+  if (!user || !db) return;
   const userRef = doc(db, "users", user.uid);
   try {
     const snapshot = await getDoc(userRef);
@@ -81,6 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (
         firebaseUser &&
@@ -98,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = useCallback(
     async (email: string, password: string) => {
+      if (!auth) return { error: "Authentication is not configured" };
       try {
         const result = await signInWithEmailAndPassword(auth, email, password);
         if (!result.user.emailVerified) {
@@ -115,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUpWithEmail = useCallback(
     async (email: string, password: string, fullName: string = "") => {
+      if (!auth) return { error: "Authentication is not configured" };
       try {
         const result = await createUserWithEmailAndPassword(auth, email, password);
         if (fullName) {
@@ -122,8 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         await saveUserToFirestore(result.user, { displayName: fullName });
         
-        await sendEmailVerification(result.user);
-        await firebaseSignOut(auth);
+        // await sendEmailVerification(result.user);
+        // await firebaseSignOut(auth);
         
         return { error: null };
       } catch (err: any) {
@@ -134,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signInWithGoogle = useCallback(async () => {
+    if (!auth) return { error: "Authentication is not configured" };
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
@@ -145,10 +152,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await firebaseSignOut(auth);
+    if (auth) await firebaseSignOut(auth);
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
+    if (!auth) return { error: "Authentication is not configured" };
     try {
       await sendPasswordResetEmail(auth, email);
       return { error: null };

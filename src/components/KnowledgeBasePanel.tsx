@@ -258,8 +258,14 @@ export function KnowledgeBasePanel() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground">
-          <BookOpen className="w-3 h-3 mr-1" /> Knowledge Base
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="text-[10px] sm:text-xs bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/20 hover:border-violet-500/40 text-violet-300 hover:text-violet-200 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] px-2 sm:px-2.5 h-7 sm:h-8 flex items-center gap-1 sm:gap-1.5 shadow-sm shadow-violet-500/5 font-medium shrink-0"
+        >
+          <BookOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-violet-400" />
+          <span className="inline sm:hidden">Knowledge</span>
+          <span className="hidden sm:inline">Knowledge Base</span>
         </Button>
       </SheetTrigger>
       <SheetContent

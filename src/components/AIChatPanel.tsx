@@ -21,6 +21,8 @@ interface AIChatPanelProps {
 }
 
 const CHAT_URL = "/api/architect-ai";
+const STREAM_MAX_RETRIES = 3;
+const STREAM_RETRY_DELAYS = [1500, 3000, 5000];
 
 async function streamChat({
   idea,
@@ -30,6 +32,8 @@ async function streamChat({
   onDelta,
   onDone,
   onError,
+  onRetry,
+  signal,
 }: {
   idea: string;
   architecture: ArchitectureEntry[];
@@ -38,87 +42,114 @@ async function streamChat({
   onDelta: (text: string) => void;
   onDone: () => void;
   onError: (err: string) => void;
+  onRetry?: (attempt: number, delayMs: number) => void;
+  signal?: AbortSignal;
 }) {
-  const resp = await fetch(CHAT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      action: "chat",
-      idea,
-      decisions: architecture,
-      message,
-      history: messages,
-    }),
-  });
+  for (let attempt = 0; attempt <= STREAM_MAX_RETRIES; attempt++) {
+    try {
+      const resp = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "chat",
+          idea,
+          decisions: architecture,
+          message,
+          history: messages,
+        }),
+        signal,
+      });
 
-  if (!resp.ok) {
-    if (resp.status === 429) {
-      onError("Rate limit exceeded. Please wait a moment and try again.");
-      return;
-    }
-    onError("Something went wrong. Please try again.");
-    return;
-  }
-
-  if (!resp.body) {
-    onError("No response stream.");
-    return;
-  }
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    let newlineIndex: number;
-    while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-      let line = buffer.slice(0, newlineIndex);
-      buffer = buffer.slice(newlineIndex + 1);
-
-      if (line.endsWith("\r")) line = line.slice(0, -1);
-      if (line.startsWith(":") || line.trim() === "") continue;
-      if (!line.startsWith("data: ")) continue;
-
-      const jsonStr = line.slice(6).trim();
-      if (jsonStr === "[DONE]") {
-        onDone();
+      if (resp.status === 429 || resp.status === 503) {
+        if (attempt < STREAM_MAX_RETRIES) {
+          const delay = STREAM_RETRY_DELAYS[attempt] + Math.random() * 500;
+          console.log(`Chat rate limited (${resp.status}), retrying in ${Math.round(delay)}ms...`);
+          onRetry?.(attempt + 1, delay);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        onError("Rate limit exceeded. Please wait a moment and try again.");
         return;
       }
 
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) onDelta(content);
-      } catch {
-        buffer = line + "\n" + buffer;
-        break;
+      if (!resp.ok) {
+        onError("Something went wrong. Please try again.");
+        return;
       }
+
+      if (!resp.body) {
+        onError("No response stream.");
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") {
+            onDone();
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) onDelta(content);
+          } catch {
+            buffer = line + "\n" + buffer;
+            break;
+          }
+        }
+      }
+
+      // Flush remaining
+      if (buffer.trim()) {
+        for (let raw of buffer.split("\n")) {
+          if (!raw) continue;
+          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+          if (!raw.startsWith("data: ")) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) onDelta(content);
+          } catch { /* ignore */ }
+        }
+      }
+
+      onDone();
+      return; // Success — exit retry loop
+    } catch (err: any) {
+      if (err.name === "AbortError") return; // Request was cancelled, don't retry
+      if (attempt < STREAM_MAX_RETRIES) {
+        const delay = STREAM_RETRY_DELAYS[attempt] + Math.random() * 500;
+        console.log(`Chat stream error, retrying in ${Math.round(delay)}ms...`);
+        onRetry?.(attempt + 1, delay);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      onError("Connection failed after multiple retries.");
+      return;
     }
   }
-
-  // Flush remaining
-  if (buffer.trim()) {
-    for (let raw of buffer.split("\n")) {
-      if (!raw) continue;
-      if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-      if (!raw.startsWith("data: ")) continue;
-      const jsonStr = raw.slice(6).trim();
-      if (jsonStr === "[DONE]") continue;
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) onDelta(content);
-      } catch { /* ignore */ }
-    }
-  }
-
-  onDone();
 }
 
 function CopyButton({ text, className = "" }: { text: string; className?: string }) {
@@ -145,9 +176,20 @@ export function AIChatPanel({ idea, architecture, blueprintId }: AIChatPanelProp
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const STORAGE_KEY = blueprintId ? `architect_chat_${blueprintId}` : 'architect_chat_local';
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
+    };
+  }, []);
 
   // Load initial messages
   useEffect(() => {
@@ -181,7 +223,7 @@ export function AIChatPanel({ idea, architecture, blueprintId }: AIChatPanelProp
   const saveChatMessage = async (role: "user" | "assistant", content: string) => {
     if (!blueprintId) return;
     try {
-      const currentUser = auth.currentUser;
+      const currentUser = auth?.currentUser;
       if (!currentUser) return;
       // TODO: Save to Firestore when ready
       // For now we just check auth — no DB writes yet
@@ -192,12 +234,21 @@ export function AIChatPanel({ idea, architecture, blueprintId }: AIChatPanelProp
 
   const send = async () => {
     if (!input.trim() || isLoading) return;
+
+    // Abort any previous in-flight chat request
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    const abortController = new AbortController();
+    abortRef.current = abortController;
+
     const userMsg: Message = { role: "user", content: input.trim() };
     const currentMessages = [...messages, userMsg];
     setMessages(currentMessages);
     saveToStorage(currentMessages);
     setInput("");
     setIsLoading(true);
+    setRetryStatus(null);
 
     // Save user message to DB
     saveChatMessage("user", userMsg.content);
@@ -225,8 +276,12 @@ export function AIChatPanel({ idea, architecture, blueprintId }: AIChatPanelProp
         architecture,
         messages,
         message: userMsg.content,
-        onDelta: upsertAssistant,
+        onDelta: (chunk) => {
+          setRetryStatus(null);
+          upsertAssistant(chunk);
+        },
         onDone: () => {
+          setRetryStatus(null);
           setIsLoading(false);
           // Save completed assistant response to DB
           if (assistantSoFar.trim()) {
@@ -234,12 +289,18 @@ export function AIChatPanel({ idea, architecture, blueprintId }: AIChatPanelProp
           }
         },
         onError: (err) => {
+          setRetryStatus(null);
           toast.error(err);
           setMessages((m) => [...m, { role: "assistant", content: err }]);
           setIsLoading(false);
         },
+        onRetry: (attempt, delayMs) => {
+          setRetryStatus(`Rate limited. Retrying (attempt ${attempt}/${STREAM_MAX_RETRIES}) in ${(delayMs / 1000).toFixed(1)}s...`);
+        },
+        signal: abortController.signal,
       });
     } catch {
+      setRetryStatus(null);
       toast.error("Connection failed.");
       setMessages((m) => [...m, { role: "assistant", content: "Sorry, connection failed." }]);
       setIsLoading(false);
@@ -354,9 +415,12 @@ export function AIChatPanel({ idea, architecture, blueprintId }: AIChatPanelProp
               ))}
               {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
                 <div className="flex gap-2">
-                  <Bot className="w-5 h-5 text-primary shrink-0" />
-                  <div className="bg-secondary rounded-lg px-3 py-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  <Bot className="w-5 h-5 text-primary shrink-0 mt-1" />
+                  <div className="bg-secondary rounded-lg px-3 py-2 flex items-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
+                    {retryStatus && (
+                      <span className="text-[10px] text-muted-foreground animate-pulse">{retryStatus}</span>
+                    )}
                   </div>
                 </div>
               )}

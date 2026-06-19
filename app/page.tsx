@@ -63,13 +63,11 @@ export default function HomePage() {
             {user ? (
               <SidebarTrigger className="w-8 h-8 bg-card border border-border shadow-sm text-foreground hover:text-accent flex items-center justify-center transition-colors rounded-md" />
             ) : (
-              <div className="md:hidden">
-                <Link href="/auth/signin">
-                  <Button variant="outline" size="sm" className="h-8 bg-card border-border shadow-sm text-foreground hover:text-accent flex items-center justify-center text-xs">
-                    <LogIn className="w-3 h-3 mr-2" /> Sign In
-                  </Button>
-                </Link>
-              </div>
+              <Link href="/auth/signin">
+                <Button variant="outline" size="sm" className="h-7 sm:h-8 bg-card border-border shadow-sm text-foreground hover:text-accent flex items-center justify-center text-[10px] sm:text-xs px-2 sm:px-3">
+                  <LogIn className="w-3 h-3 mr-1.5" /> Sign In
+                </Button>
+              </Link>
             )}
           </div>
           <div className="flex-1 overflow-auto grid-bg relative">
@@ -89,43 +87,42 @@ export default function HomePage() {
       />
       <SidebarInset className="bg-transparent h-screen flex flex-col min-w-0 grid-bg">
         {/* Header */}
-        <header className="h-12 border-b border-border flex items-center justify-between px-4 bg-card/80 backdrop-blur-sm shrink-0">
-          <div className="flex items-center gap-2">
-            {user ? (
-              <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors mr-1" />
-            ) : (
-              <div className="md:hidden">
-                <Link href="/auth/signin">
-                  <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary/80 shrink-0 mr-1 p-0 px-2 h-8">
-                    <LogIn className="w-4 h-4 mr-1.5" /> Sign In
-                  </Button>
-                </Link>
-              </div>
+        <header className="h-12 border-b border-border flex items-center justify-between px-2 sm:px-4 bg-card/80 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            {user && (
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground transition-colors shrink-0" />
             )}
-            <Cpu className="w-5 h-5 text-primary hidden sm:block" />
-            <span className="text-sm font-bold text-foreground">
+            <Cpu className="w-4 h-4 sm:w-5 sm:h-5 text-primary shrink-0" />
+            <span className="text-xs sm:text-sm font-bold text-foreground whitespace-nowrap">
               Architect<span className="text-primary">AI</span>
             </span>
-          <span className="text-[10px] text-muted-foreground font-mono ml-2 truncate max-w-[120px] sm:max-w-[300px] hidden sm:inline">
-            — {idea}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <KnowledgeBasePanel />
-          <Button variant="ghost" size="sm" onClick={reset} className="text-xs text-muted-foreground hover:text-foreground shrink-0">
-            <Plus className="w-3 h-3 mr-1" /> Start New
-          </Button>
-          {!user && (
-            <div className="hidden md:block">
+            <span className="text-[10px] text-muted-foreground font-mono ml-1 truncate max-w-[80px] sm:max-w-[300px] hidden sm:inline">
+              — {idea}
+            </span>
+          </div>
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+            <KnowledgeBasePanel />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={reset} 
+              className="text-[10px] sm:text-xs bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/20 hover:border-emerald-500/40 text-emerald-300 hover:text-emerald-200 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] px-1.5 sm:px-2.5 h-7 sm:h-8 flex items-center gap-1 sm:gap-1.5 shadow-sm shadow-emerald-500/5 font-medium shrink-0"
+            >
+              <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Start New</span>
+              <span className="inline sm:hidden">New</span>
+            </Button>
+            {!user && (
               <Link href="/auth/signin">
-                <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary/80 shrink-0 ml-1">
-                  <LogIn className="w-3 h-3 mr-1" /> Sign In
+                <Button variant="ghost" size="sm" className="text-[10px] sm:text-xs text-primary hover:text-primary/80 shrink-0 px-1.5 sm:px-2 h-7 sm:h-8">
+                  <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5 mr-1" />
+                  <span className="hidden sm:inline">Sign In</span>
+                  <span className="inline sm:hidden">Login</span>
                 </Button>
               </Link>
-            </div>
-          )}
-        </div>
-      </header>
+            )}
+          </div>
+        </header>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 min-w-0">

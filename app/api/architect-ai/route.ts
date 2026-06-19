@@ -10,23 +10,11 @@ const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENAI_MODEL = "gpt-4o-mini";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
-// ── Reliability: Global request pacer ────────────────────────────────
-// Groq has generous rate limits, but we still pace to be safe
-const MIN_REQUEST_GAP_MS = 500;
-let lastRequestTime = 0;
+// Fallback API key — must be set through environment variables
+const FALLBACK_GROQ_KEY = "";
 
-async function paceRequest(): Promise<void> {
-  const now = Date.now();
-  const elapsed = now - lastRequestTime;
-  if (elapsed < MIN_REQUEST_GAP_MS) {
-    const waitMs = MIN_REQUEST_GAP_MS - elapsed;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
-  lastRequestTime = Date.now();
-}
-
-// ── Reliability: Serialize requests (max 2 concurrent) ──────────────
-const MAX_CONCURRENT = 2;
+// ── Concurrency: Allow up to 50 simultaneous API calls ───────────────
+const MAX_CONCURRENT = 50;
 let activeRequests = 0;
 const requestQueue: Array<{ resolve: () => void }> = [];
 
@@ -49,9 +37,59 @@ function releaseSlot(): void {
   }
 }
 
-// ── Reliability: In-memory cache ─────────────────────────────────────
+// ── Per-User Rate Limiting (Token Bucket per IP) ─────────────────────
+// Allow 5 requests per 10 seconds per IP to prevent one user hogging all capacity
+interface RateBucket {
+  tokens: number;
+  lastRefill: number;
+}
+
+const rateLimitMap = new Map<string, RateBucket>();
+const RATE_LIMIT_TOKENS = 8;       // max burst per user
+const RATE_LIMIT_REFILL = 8;       // tokens refilled per window
+const RATE_LIMIT_WINDOW_MS = 10000; // 10 seconds
+const RATE_LIMIT_CLEANUP_INTERVAL = 60000; // cleanup old entries every 60s
+let lastRateLimitCleanup = Date.now();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+
+  // Periodic cleanup of stale entries
+  if (now - lastRateLimitCleanup > RATE_LIMIT_CLEANUP_INTERVAL) {
+    lastRateLimitCleanup = now;
+    for (const [key, bucket] of rateLimitMap) {
+      if (now - bucket.lastRefill > RATE_LIMIT_WINDOW_MS * 6) {
+        rateLimitMap.delete(key);
+      }
+    }
+  }
+
+  let bucket = rateLimitMap.get(ip);
+  if (!bucket) {
+    bucket = { tokens: RATE_LIMIT_TOKENS, lastRefill: now };
+    rateLimitMap.set(ip, bucket);
+  }
+
+  // Refill tokens based on elapsed time
+  const elapsed = now - bucket.lastRefill;
+  if (elapsed >= RATE_LIMIT_WINDOW_MS) {
+    const refills = Math.floor(elapsed / RATE_LIMIT_WINDOW_MS);
+    bucket.tokens = Math.min(RATE_LIMIT_TOKENS, bucket.tokens + refills * RATE_LIMIT_REFILL);
+    bucket.lastRefill = now;
+  }
+
+  if (bucket.tokens <= 0) {
+    return false; // rate limited
+  }
+
+  bucket.tokens--;
+  return true;
+}
+
+// ── In-memory cache (1000 entries, 60 min TTL) ───────────────────────
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL = 60 * 60 * 1000; // 60 minutes
+const CACHE_MAX_SIZE = 1000;
 
 function getCacheKey(action: string, payload: string): string {
   return `${action}:${payload.toLowerCase().trim()}`;
@@ -68,13 +106,14 @@ function getFromCache(key: string): any | null {
 
 function setCache(key: string, data: any): void {
   cache.set(key, { data, timestamp: Date.now() });
-  if (cache.size > 200) {
+  // LRU-style eviction: remove oldest when oversized
+  if (cache.size > CACHE_MAX_SIZE) {
     const oldest = cache.keys().next().value;
     if (oldest) cache.delete(oldest);
   }
 }
 
-// ── Reliability: Request deduplication ───────────────────────────────
+// ── Request deduplication ────────────────────────────────────────────
 const inflightRequests = new Map<string, Promise<any>>();
 
 async function deduplicatedCall(key: string, fn: () => Promise<any>): Promise<any> {
@@ -88,12 +127,14 @@ async function deduplicatedCall(key: string, fn: () => Promise<any>): Promise<an
   return promise;
 }
 
-// ── API Key Management & Reliability: Least Connections + Cooldown ──────
+// ── API Key Management: Least Connections + Cooldown ─────────────────
 type KeyState = {
   key: string;
   activeRequests: number;
   lastUsedAt: number;
   cooldownUntil: number;
+  consecutiveFailures: number;
+  proxyUrl?: string;
 };
 
 let keyStates: KeyState[] = [];
@@ -106,32 +147,44 @@ function initializeKeys() {
     const groqKeys = rawGroq.split(",").map((k) => k.trim()).filter(Boolean);
     const orKeys = rawOr.split(",").map((k) => k.trim()).filter(Boolean);
     const oaiKeys = rawOai.split(",").map((k) => k.trim()).filter(Boolean);
-    
-    const splitKeys = [...groqKeys, ...orKeys, ...oaiKeys];
-    if (splitKeys.length === 0) {
-      throw new Error("No API keys configured in environment.");
+
+    let splitKeys = [...groqKeys, ...orKeys, ...oaiKeys];
+
+    // Map keys to custom proxy URLs if configured (comma-separated URLs corresponding to keys)
+    const rawProxies = process.env.GROQ_PROXY_URLS || "";
+    const proxyUrls = rawProxies.split(",").map((p) => p.trim()).filter(Boolean);
+
+    // If no keys from env, use the fallback
+    if (splitKeys.length === 0 && FALLBACK_GROQ_KEY) {
+      splitKeys = [FALLBACK_GROQ_KEY];
     }
-    keyStates = splitKeys.map((k) => ({
-      key: k,
-      activeRequests: 0,
-      lastUsedAt: 0,
-      cooldownUntil: 0,
-    }));
+
+    keyStates = splitKeys
+      .filter((k) => k.trim().length > 0)
+      .map((k, idx) => ({
+        key: k,
+        activeRequests: 0,
+        lastUsedAt: 0,
+        cooldownUntil: 0,
+        consecutiveFailures: 0,
+        proxyUrl: proxyUrls[idx] || undefined,
+      }));
   }
 }
 
-function acquireBestKey(): KeyState {
+function acquireBestKey(): KeyState | null {
   initializeKeys();
+  if (keyStates.length === 0) return null;
   const now = Date.now();
-  
-  // 1. Filter out keys that are currently in cooldown
+
+  // Filter out keys that are currently in cooldown
   let available = keyStates.filter((k) => now >= k.cooldownUntil);
-  
-  // If all keys are in cooldown, we'll wait or pick the one that unlocks earliest
+
   if (available.length === 0) {
+    // All keys in cooldown — pick the one that unlocks soonest
     available = [...keyStates].sort((a, b) => a.cooldownUntil - b.cooldownUntil);
   } else {
-    // 2. Sort available keys by Least Active Requests first, then Least Recently Used (LRU)
+    // Sort by: fewest active requests → least recently used
     available.sort((a, b) => {
       if (a.activeRequests !== b.activeRequests) {
         return a.activeRequests - b.activeRequests;
@@ -149,33 +202,57 @@ function acquireBestKey(): KeyState {
 function releaseKey(state: KeyState, isRateLimited: boolean) {
   state.activeRequests = Math.max(0, state.activeRequests - 1);
   if (isRateLimited) {
-    // Put strictly on cooldown for 15 seconds so we don't bombard it
-    state.cooldownUntil = Date.now() + 15000;
+    state.consecutiveFailures++;
+    // Progressive cooldown: 10s, 20s, 40s based on consecutive failures
+    const cooldownMs = Math.min(10000 * Math.pow(2, state.consecutiveFailures - 1), 60000);
+    state.cooldownUntil = Date.now() + cooldownMs;
+  } else {
+    state.consecutiveFailures = 0;
   }
 }
 
-const RETRY_DELAYS_MS = [1000, 2000, 4000];
+// ── Retry with key rotation + exponential backoff ────────────────────
+const RETRY_DELAYS_MS = [800, 2000, 5000];
+const REQUEST_TIMEOUT_MS = 30000; // 30 second timeout per API call
 
-async function withRetry<T>(fn: (apiKey: string) => Promise<T>, maxRetries = 3): Promise<T> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = REQUEST_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function withRetry<T>(fn: (apiKey: string, proxyUrl?: string) => Promise<T>, maxRetries = 3): Promise<T> {
   initializeKeys();
+  if (keyStates.length === 0) {
+    throw new Error("No API keys configured. Please configure at least one API key (e.g. GROQ_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY) in the environment variables.");
+  }
   let lastError: Error | null = null;
-  // If we have 8 keys, allow up to 16 attempts total (e.g., trying each key twice if needed)
   const totalAttempts = Math.max(maxRetries, keyStates.length * 2);
 
   for (let attempt = 0; attempt <= totalAttempts; attempt++) {
     const keyState = acquireBestKey();
+    if (!keyState) {
+      throw new Error("No API keys available in pool.");
+    }
     const now = Date.now();
 
-    // If even the "best" key is STILL in cooldown, it means ALL keys have hit rate limits.
-    // Wait until this key unlocks.
+    // If the best key is still in cooldown, wait for it
     if (keyState.cooldownUntil > now) {
       const waitTime = keyState.cooldownUntil - now;
-      console.log(`All API keys are in cooldown. Waiting ${Math.round(waitTime / 1000)}s...`);
+      console.log(`All API keys in cooldown. Waiting ${Math.round(waitTime / 1000)}s...`);
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
 
     try {
-      const result = await fn(keyState.key);
+      const result = await fn(keyState.key, keyState.proxyUrl);
       releaseKey(keyState, false);
       return result;
     } catch (err: any) {
@@ -189,14 +266,29 @@ async function withRetry<T>(fn: (apiKey: string) => Promise<T>, maxRetries = 3):
       releaseKey(keyState, isRateLimit);
 
       if (isRateLimit) {
-        console.log(`Rate limit reached on this key.`);
-        throw new Error("Rate limit exceeded. Please wait a moment and try again.");
+        console.log(`Rate limit on key (attempt ${attempt + 1}/${totalAttempts + 1}). Rotating...`);
+        if (attempt < totalAttempts) {
+          const nowTime = Date.now();
+          const healthyKeys = keyStates.filter((k) => nowTime >= k.cooldownUntil).length;
+          
+          if (healthyKeys > 0) {
+            console.log(`Healthy keys available in pool. Switching immediately with 0ms delay...`);
+            continue;
+          }
+
+          const jitter = Math.random() * 500;
+          const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)] + jitter;
+          console.log(`All keys rate-limited. Backing off for ${Math.round(delay)}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        throw new Error("All API keys are rate limited. Please wait a moment and try again.");
       }
 
-      // Standard server errors get standard backoff 
+      // Server errors: standard backoff
       if (attempt < maxRetries) {
-        const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
-        await new Promise((resolve) => setTimeout(resolve, delay + Math.random() * 500));
+        const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)] + Math.random() * 500;
+        await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
 
@@ -265,18 +357,17 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
 
   await acquireSlot();
   try {
-    await paceRequest();
-    const result = await withRetry(async (apiKey) => {
-      let apiUrl = GROQ_API_URL;
+    const result = await withRetry(async (apiKey, proxyUrl) => {
+      let apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : GROQ_API_URL;
       let model = GROQ_MODEL;
       if (apiKey.startsWith("sk-or")) {
-        apiUrl = OPENROUTER_API_URL;
+        apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : OPENROUTER_API_URL;
         model = OPENROUTER_MODEL;
       } else if (apiKey.startsWith("sk-")) {
-        apiUrl = OPENAI_API_URL;
+        apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : OPENAI_API_URL;
         model = OPENAI_MODEL;
       }
-      const response = await fetch(apiUrl, {
+      const response = await fetchWithTimeout(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -339,18 +430,17 @@ async function streamGroqChat(
 
   await acquireSlot();
   try {
-    await paceRequest();
-    const res = await withRetry(async (apiKey) => {
-      let apiUrl = GROQ_API_URL;
+    const res = await withRetry(async (apiKey, proxyUrl) => {
+      let apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : GROQ_API_URL;
       let model = GROQ_MODEL;
       if (apiKey.startsWith("sk-or")) {
-        apiUrl = OPENROUTER_API_URL;
+        apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : OPENROUTER_API_URL;
         model = OPENROUTER_MODEL;
       } else if (apiKey.startsWith("sk-")) {
-        apiUrl = OPENAI_API_URL;
+        apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : OPENAI_API_URL;
         model = OPENAI_MODEL;
       }
-      const response = await fetch(apiUrl, {
+      const response = await fetchWithTimeout(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -363,7 +453,7 @@ async function streamGroqChat(
           temperature: 0.5,
           max_tokens: 1024,
         }),
-      });
+      }, 60000); // 60s timeout for streaming
 
       if (!response.ok) {
         const errBody = await response.text();
@@ -435,6 +525,15 @@ export async function OPTIONS() {
 
 // ── POST handler ─────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  // Per-user rate limiting by IP
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || request.headers.get("x-real-ip")
+    || "unknown";
+
+  if (!checkRateLimit(ip)) {
+    return errorResponse("Too many requests. Please slow down and try again in a few seconds.", 429);
+  }
+
   try {
     const { action, idea, decisions, completedCategories, remainingCategories, message, history } = await request.json();
 

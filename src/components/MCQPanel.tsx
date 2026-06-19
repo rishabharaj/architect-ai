@@ -72,7 +72,7 @@ export function MCQPanel({ question, isLoading, completedCategories, onSelect, o
       </div>
 
       {/* Question area */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 pb-32 md:pb-4">
         <AnimatePresence mode="wait">
           {isLoading && !question ? (
             <motion.div

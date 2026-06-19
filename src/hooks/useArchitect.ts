@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, setDoc, getDoc, collection } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { toast } from "sonner";
 
 const SESSION_KEY = "architect-ai-state";
@@ -57,6 +58,7 @@ export function useArchitect() {
   const [blueprintId, setBlueprintId] = useState<string | null>(null);
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const restoredRef = useRef(false);
+  const isSyncingRef = useRef(false);
 
   // ── Persist state to localStorage so refreshes don't lose progress ──
   const persistState = useCallback((overrides?: Partial<{
@@ -132,8 +134,8 @@ export function useArchitect() {
     currentBlueprintId: string | null,
   ) => {
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return currentBlueprintId;
+      const currentUser = auth?.currentUser;
+      if (!currentUser || !db) return currentBlueprintId;
 
       const chatsRef = collection(db, "users", currentUser.uid, "chats");
       const blueprintRef = currentBlueprintId ? doc(chatsRef, currentBlueprintId) : doc(chatsRef);
@@ -162,18 +164,58 @@ export function useArchitect() {
     }
   }, [customCategories]);
 
-  // Call Next.js API route instead of Supabase edge function
+  // Call Next.js API route with automatic retry on rate limits
+  const activeAbortRef = useRef<AbortController | null>(null);
+
   const callArchitectAPI = useCallback(async (body: any) => {
-    const res = await fetch("/api/architect-ai", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({ error: "Request failed" }));
-      throw new Error(errData.error || `Request failed with status ${res.status}`);
+    // Abort any previous in-flight request for the same action to prevent duplicates
+    if (activeAbortRef.current) {
+      activeAbortRef.current.abort();
     }
-    return res.json();
+    const abortController = new AbortController();
+    activeAbortRef.current = abortController;
+
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [1000, 2000, 4000];
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await fetch("/api/architect-ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: abortController.signal,
+        });
+
+        if (res.status === 429 || res.status === 503) {
+          if (attempt < MAX_RETRIES) {
+            const delay = RETRY_DELAYS[attempt] + Math.random() * 500;
+            console.log(`Rate limited (${res.status}), retrying in ${Math.round(delay)}ms... (attempt ${attempt + 1}/${MAX_RETRIES})`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ error: "Request failed" }));
+          throw new Error(errData.error || `Request failed with status ${res.status}`);
+        }
+
+        return res.json();
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          throw new Error("Request was cancelled");
+        }
+        // On network errors, retry
+        if (attempt < MAX_RETRIES && err.message?.includes("fetch")) {
+          const delay = RETRY_DELAYS[attempt] + Math.random() * 500;
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error("Request failed after multiple retries. Please try again.");
   }, []);
 
   const analyzeIdea = useCallback(async (userIdea: string) => {
@@ -288,8 +330,8 @@ export function useArchitect() {
 
   // Load saved blueprints from Firestore
   const loadBlueprint = useCallback(async (id: string) => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    const currentUser = auth?.currentUser;
+    if (!currentUser || !db) return;
     try {
       const docRef = doc(db, "users", currentUser.uid, "chats", id);
       const snapshot = await getDoc(docRef);
@@ -308,6 +350,48 @@ export function useArchitect() {
       console.error("Failed to load blueprint:", err);
     }
   }, []);
+
+  // Listen to auth state changes to detect when a guest user signs in/up
+  useEffect(() => {
+    if (!auth) return;
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser && restoredRef.current && idea && !blueprintId && !isSyncingRef.current) {
+        isSyncingRef.current = true;
+        console.log("Guest session detected upon sign in. Syncing to Firestore...");
+        try {
+          const id = await saveBlueprint(
+            idea,
+            architecture,
+            completedCategories,
+            remainingCategories,
+            guide,
+            phase,
+            null
+          );
+          if (id) {
+            setBlueprintId(id);
+            // Also need to update the localStorage to include this blueprintId
+            try {
+              const saved = localStorage.getItem(SESSION_KEY);
+              if (saved) {
+                const state = JSON.parse(saved);
+                state.blueprintId = id;
+                localStorage.setItem(SESSION_KEY, JSON.stringify(state));
+              }
+            } catch (err) {
+              console.error("Failed to update localStorage with synced blueprintId:", err);
+            }
+            toast.success("Guest session synced to your account!");
+          }
+        } catch (err) {
+          console.error("Failed to sync guest session:", err);
+        } finally {
+          isSyncingRef.current = false;
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [idea, blueprintId, architecture, completedCategories, remainingCategories, guide, phase, saveBlueprint]);
 
   return {
     idea, phase, isAnalyzing, currentQuestion, architecture,

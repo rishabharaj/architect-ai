@@ -10,7 +10,7 @@ import {
   Cpu,
   LogOut,
   User as UserIcon,
-  ChevronsUpDown
+  ChevronDown,
 } from "lucide-react"
 
 import {
@@ -67,9 +67,12 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
   // Rename Dialog Status
   const [chatToRename, setChatToRename] = React.useState<Chat | null>(null);
   const [newName, setNewName] = React.useState("");
+  // Sign Out Confirmation Status
+  const [showSignOutConfirm, setShowSignOutConfirm] = React.useState(false);
+  const [profileExpanded, setProfileExpanded] = React.useState(false);
 
   React.useEffect(() => {
-    if (!user) {
+    if (!user || !db) {
       setChats([]);
       return;
     }
@@ -85,7 +88,7 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
   }, [user]);
 
   const handleDelete = async () => {
-    if (!user || !chatToDelete) return;
+    if (!user || !chatToDelete || !db) return;
     try {
       await deleteDoc(doc(db, "users", user.uid, "chats", chatToDelete.id));
       if (currentBlueprintId === chatToDelete.id) {
@@ -100,7 +103,7 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
   };
 
   const handleRename = async () => {
-    if (!user || !chatToRename || !newName.trim()) return;
+    if (!user || !chatToRename || !newName.trim() || !db) return;
     try {
       await updateDoc(doc(db, "users", user.uid, "chats", chatToRename.id), {
         name: newName.trim(),
@@ -118,19 +121,52 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
   return (
     <>
       <Sidebar variant="inset" className="border-r border-border dark">
-        <SidebarHeader className="bg-card">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton size="lg" onClick={onNewBlueprint} className="bg-primary/10 hover:bg-primary/20 hover:text-primary transition-colors text-primary border border-primary/20">
-                <div className="flex aspect-square size-6 items-center justify-center rounded-md bg-transparent">
-                  <Plus className="size-4" />
-                </div>
-                <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold text-sm">New Session</span>
-                </div>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+        <SidebarHeader className="bg-card border-b border-border p-0">
+          {/* Compact profile row */}
+          <button
+            onClick={() => setProfileExpanded(!profileExpanded)}
+            className="w-full flex items-center gap-3 px-3 py-3 hover:bg-secondary/50 transition-colors cursor-pointer"
+          >
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 overflow-hidden shrink-0">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon className="size-4 text-primary" />
+              )}
+            </div>
+            <div className="flex flex-col gap-0.5 leading-none overflow-hidden text-left">
+              <span className="font-semibold text-sm truncate text-foreground">{user.displayName || user.email?.split("@")[0]}</span>
+              <span className="text-xs text-muted-foreground truncate">{user.email}</span>
+            </div>
+            <ChevronDown className={`ml-auto size-4 text-muted-foreground transition-transform duration-200 shrink-0 ${profileExpanded ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* Expanded profile panel */}
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${profileExpanded ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="flex flex-col items-center px-4 pb-4 pt-2 gap-3 border-t border-border/50">
+              {/* Large avatar */}
+              <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center overflow-hidden shadow-lg shadow-primary/10">
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <UserIcon className="w-7 h-7 text-primary" />
+                )}
+              </div>
+              <div className="text-center overflow-hidden w-full">
+                <p className="font-semibold text-sm text-foreground truncate">{user.displayName || user.email?.split("@")[0]}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowSignOutConfirm(true)}
+                className="w-full h-8 text-xs font-medium mt-1"
+              >
+                <LogOut className="w-3.5 h-3.5 mr-1.5" />
+                Sign Out
+              </Button>
+            </div>
+          </div>
         </SidebarHeader>
         <SidebarContent className="bg-card">
           <SidebarGroup>
@@ -181,38 +217,14 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
         <SidebarFooter className="bg-card border-t border-border mt-auto">
           <SidebarMenu>
             <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton
-                    size="lg"
-                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                  >
-                    <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 bg-cover overflow-hidden">
-                      {user.photoURL ? (
-                        <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        <UserIcon className="size-4 text-primary" />
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-0.5 leading-none overflow-hidden">
-                      <span className="font-semibold text-sm truncate">{user.displayName || user.email?.split("@")[0]}</span>
-                      <span className="text-xs text-muted-foreground truncate">{user.email}</span>
-                    </div>
-                    <ChevronsUpDown className="ml-auto size-4" />
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl border border-border bg-card shadow-2xl"
-                  side="right"
-                  align="end"
-                  sideOffset={4}
-                >
-                  <DropdownMenuItem onClick={() => { auth.signOut(); }} className="hover:bg-destructive/10 text-destructive focus:text-destructive cursor-pointer group">
-                    <LogOut className="mr-2 h-4 w-4 group-hover:text-destructive" />
-                    <span>Sign Out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <SidebarMenuButton size="lg" onClick={onNewBlueprint} className="bg-primary/10 hover:bg-primary/20 hover:text-primary transition-colors text-primary border border-primary/20">
+                <div className="flex aspect-square size-6 items-center justify-center rounded-md bg-transparent">
+                  <Plus className="size-4" />
+                </div>
+                <div className="flex flex-col gap-0.5 leading-none">
+                  <span className="font-semibold text-sm">New Session</span>
+                </div>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
@@ -256,6 +268,55 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
             <Button variant="ghost" onClick={() => setChatToRename(null)} className="h-9">Cancel</Button>
             <Button onClick={handleRename} className="h-9 bg-accent hover:bg-accent/90 text-accent-foreground drop-shadow-md">Save</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sign Out / Profile Dialog */}
+      <Dialog open={showSignOutConfirm} onOpenChange={setShowSignOutConfirm}>
+        <DialogContent className="border-border bg-card shadow-xl sm:max-w-sm flex flex-col items-center p-6 text-center gap-0">
+          <DialogHeader className="flex flex-col items-center justify-center w-full">
+            {/* Profile Picture */}
+            <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center overflow-hidden mb-3 shadow-lg shadow-primary/10">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon className="w-8 h-8 text-primary" />
+              )}
+            </div>
+            {/* Name & Email */}
+            <DialogTitle className="text-foreground text-lg font-bold">
+              {user.displayName || user.email?.split("@")[0]}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm mt-1">
+              {user.email}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Divider */}
+          <div className="w-full border-t border-border my-5" />
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2.5 w-full">
+            <Button 
+              variant="destructive" 
+              onClick={async () => {
+                setShowSignOutConfirm(false);
+                await auth?.signOut();
+                toast.success("Signed out successfully");
+              }} 
+              className="h-10 w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground drop-shadow-md font-medium"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowSignOutConfirm(false)} 
+              className="h-10 w-full text-foreground border-border hover:bg-secondary"
+            >
+              Cancel
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </>
