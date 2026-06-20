@@ -162,24 +162,27 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
 
           {/* Expanded profile panel */}
           <div className={`overflow-hidden transition-all duration-300 ease-in-out ${profileExpanded ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0'}`}>
-            <div className="flex flex-col items-center px-4 pb-4 pt-2 gap-3 border-t border-border/50">
-              {/* Large avatar */}
-              <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center overflow-hidden shadow-lg shadow-primary/10">
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <UserIcon className="w-7 h-7 text-primary" />
-                )}
-              </div>
-              <div className="text-center overflow-hidden w-full">
-                <p className="font-semibold text-sm text-foreground truncate">{user.displayName || user.email?.split("@")[0]}</p>
-                <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+            <div className="flex flex-col gap-3 px-4 pb-4 pt-2 border-t border-border/50">
+              {/* User stats/metadata instead of redundant profile info */}
+              <div className="w-full text-[11px] space-y-2 text-muted-foreground bg-secondary/30 p-2.5 rounded-lg border border-border/50">
+                <div className="flex justify-between items-center">
+                  <span>Plan Status</span>
+                  <span className="font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20 uppercase tracking-wider text-[10px]">Free Tier</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Saved Sessions</span>
+                  <span className="font-medium text-foreground">{chats.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Server Node</span>
+                  <span className="font-medium text-foreground">Cloud Edge</span>
+                </div>
               </div>
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={() => setShowSignOutConfirm(true)}
-                className="w-full h-8 text-xs font-medium mt-1"
+                className="w-full h-8 text-xs font-medium"
               >
                 <LogOut className="w-3.5 h-3.5 mr-1.5" />
                 Sign Out
@@ -294,20 +297,15 @@ export function AppSidebar({ currentBlueprintId, onSelectBlueprint, onNewBluepri
       <Dialog open={showSignOutConfirm} onOpenChange={setShowSignOutConfirm}>
         <DialogContent className="border-border bg-card shadow-xl sm:max-w-sm flex flex-col items-center p-6 text-center gap-0">
           <DialogHeader className="flex flex-col items-center justify-center w-full">
-            {/* Profile Picture */}
-            <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center overflow-hidden mb-3 shadow-lg shadow-primary/10">
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <UserIcon className="w-8 h-8 text-primary" />
-              )}
+            {/* LogOut Warning Icon */}
+            <div className="w-12 h-12 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center mb-3 shadow-lg shadow-destructive/5">
+              <LogOut className="w-5 h-5 text-destructive" />
             </div>
-            {/* Name & Email */}
             <DialogTitle className="text-foreground text-lg font-bold">
-              {user.displayName || user.email?.split("@")[0]}
+              Sign Out
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground text-sm mt-1">
-              {user.email}
+            <DialogDescription className="text-muted-foreground text-xs mt-1.5 max-w-[240px]">
+              Are you sure you want to log out of your account? You will need to sign in again to access your blueprints.
             </DialogDescription>
           </DialogHeader>
 
