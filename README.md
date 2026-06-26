@@ -1,7 +1,7 @@
 # 🏗️ Architect AI
 
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
-[![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-066c47?style=for-the-badge&logo=supabase)](https://supabase.com/)
+[![Firebase](https://img.shields.io/badge/Firebase-Database%20%26%20Auth-066c47?style=for-the-badge&logo=firebase)](https://firebase.com/)
 [![GEMINI](https://img.shields.io/badge/Gemini-AI%20Inference-f26522?style=for-the-badge&logo=gemini)](https://gemini.google.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
@@ -23,7 +23,7 @@
 - **🛠️ Tech Stack Selection**: AI-guided decisions for Frontend, Backend, Database, and more.
 - **💬 AI Architect Assistant**: Interactive chat to refine your architecture in real-time.
 - **📄 Instant Export**: Download your complete blueprint as Markdown or PDF.
-- **🔐 Secure Auth**: Google OAuth integration via Supabase.
+- **🔐 Secure Auth**: Google OAuth integration via Firebase.
 - **🚀 State Persistence**: Never lose progress during sign-in redirects.
 
 ---
@@ -33,9 +33,9 @@
 - **Core**: Next.js 14 (App Router), React 18, TypeScript
 - **Styling**: Tailwind CSS, Framer Motion, Lucide React
 - **UI Components**: shadcn/ui
-- **Database & Auth**: Supabase
-- **AI Backend**: gemini API (Llama 3.1 8B Instant)
-- **State**: React Query + SessionStorage Persistence
+- **Database & Auth**: Firebase
+- **AI Backend**: gemini API 
+- **State**: Zustand + SessionStorage Persistence
 
 ---
 
@@ -43,7 +43,7 @@
 
 ### 1. Prerequisites
 - Node.js 18+
-- Supabase Account
+- Firebase Account
 - gemini API Key
 
 ### 2. Installation
@@ -59,14 +59,18 @@ npm install
 ### 3. Environment Setup
 Create a `.env.local` file in the root directory:
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-GEMINI_API_KEY=your_GEMINI_api_key
+NEXT_PUBLIC_FIREBASE_API_KEY
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+NEXT_PUBLIC_FIREBASE_PROJECT_ID
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+NEXT_PUBLIC_FIREBASE_APP_ID
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+GEMINI_API_KEY
 ```
 
 ### 4. Database Setup
-Run the SQL migration found in `supabase/migrations/20260316_full_schema.sql` in your Supabase SQL Editor to set up the `blueprints` and `chat_messages` tables.
-
+create firebase project
 ### 5. Run it
 ```bash
 npm run dev
@@ -84,9 +88,7 @@ src/
 ├── components/         # Modular React Components
 ├── hooks/              # Custom Hooks (useArchitect, useAuth)
 ├── lib/                # Export & Utility functions
-├── integrations/       # Supabase Client
-supabase/
-└── migrations/         # SQL Database Schema
+├── integrations/       # Firebase Client
 ```
 
 ---
