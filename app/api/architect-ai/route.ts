@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 // ── Config ───────────────────────────────────────────────────────────
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_MODEL = "qwen/qwen3.8-27b";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-const OPENROUTER_MODEL = "meta-llama/llama-3.1-8b-instruct";
+const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct";
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 const OPENAI_MODEL = "gpt-4o-mini";

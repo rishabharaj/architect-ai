@@ -37,3 +37,9 @@ next-env.d.ts
 # lock files (not npm)
 bun.lock
 bun.lockb
+
+# reports and guides
+analysis_report.md
+analysis_report.pdf
+implementation_guide.md
+implementation_guide.pdf
