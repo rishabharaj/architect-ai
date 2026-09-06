@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 // ── Config ───────────────────────────────────────────────────────────
-const GROQ_MODEL = "qwen/qwen3.8-27b";
+const GROQ_MODEL = "openai/gpt-oss-120b";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct";
@@ -183,8 +183,13 @@ function acquireBestKey(): KeyState | null {
   let available = keyStates.filter((k) => now >= k.cooldownUntil);
 
   if (available.length === 0) {
-    // All keys in cooldown — pick the one that unlocks soonest
-    available = [...keyStates].sort((a, b) => a.cooldownUntil - b.cooldownUntil);
+    // All keys in cooldown — pick the one that unlocks soonest (ignoring permanently restricted keys)
+    const temporaryKeys = keyStates.filter((k) => k.cooldownUntil - now < 3600000);
+    if (temporaryKeys.length > 0) {
+      available = [...temporaryKeys].sort((a, b) => a.cooldownUntil - b.cooldownUntil);
+    } else {
+      return null;
+    }
   } else {
     // Sort by: fewest active requests → least recently used
     available.sort((a, b) => {
@@ -201,12 +206,15 @@ function acquireBestKey(): KeyState | null {
   return bestKey;
 }
 
-function releaseKey(state: KeyState, isRateLimited: boolean) {
+function releaseKey(state: KeyState, isRateLimited: boolean, isKeyInvalid: boolean = false) {
   state.activeRequests = Math.max(0, state.activeRequests - 1);
-  if (isRateLimited) {
+  if (isKeyInvalid) {
+    // Key is restricted or invalid - disable for 24 hours so it won't block healthy keys
+    state.cooldownUntil = Date.now() + 24 * 60 * 60 * 1000;
+  } else if (isRateLimited) {
     state.consecutiveFailures++;
-    // Progressive cooldown: 10s, 20s, 40s based on consecutive failures
-    const cooldownMs = Math.min(10000 * Math.pow(2, state.consecutiveFailures - 1), 60000);
+    // Short progressive cooldown: 3s, 6s, 12s
+    const cooldownMs = Math.min(3000 * Math.pow(2, state.consecutiveFailures - 1), 15000);
     state.cooldownUntil = Date.now() + cooldownMs;
   } else {
     state.consecutiveFailures = 0;
@@ -214,7 +222,7 @@ function releaseKey(state: KeyState, isRateLimited: boolean) {
 }
 
 // ── Retry with key rotation + exponential backoff ────────────────────
-const RETRY_DELAYS_MS = [800, 2000, 5000];
+const RETRY_DELAYS_MS = [50, 150, 300];
 const REQUEST_TIMEOUT_MS = 30000; // 30 second timeout per API call
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = REQUEST_TIMEOUT_MS): Promise<Response> {
@@ -242,7 +250,7 @@ async function withRetry<T>(fn: (apiKey: string, proxyUrl?: string) => Promise<T
   for (let attempt = 0; attempt <= totalAttempts; attempt++) {
     const keyState = acquireBestKey();
     if (!keyState) {
-      throw new Error("No API keys available in pool.");
+      throw new Error("No active API keys available in pool.");
     }
     const now = Date.now();
 
@@ -259,16 +267,25 @@ async function withRetry<T>(fn: (apiKey: string, proxyUrl?: string) => Promise<T
       return result;
     } catch (err: any) {
       lastError = err;
+      const msg = err?.message || String(err);
+      const isKeyInvalid =
+        err?.status === 401 ||
+        err?.status === 403 ||
+        msg.includes("organization_restricted") ||
+        msg.includes("invalid_api_key") ||
+        msg.includes("Organization has been restricted");
+
       const isRateLimit =
         err?.status === 429 ||
-        err?.message?.includes("429") ||
-        err?.message?.includes("rate_limit") ||
-        err?.message?.includes("Too Many Requests");
+        msg.includes("429") ||
+        msg.includes("rate_limit") ||
+        msg.includes("Too Many Requests") ||
+        msg.includes("tokens per minute");
 
-      releaseKey(keyState, isRateLimit);
+      releaseKey(keyState, isRateLimit, isKeyInvalid);
 
-      if (isRateLimit) {
-        console.log(`Rate limit on key (attempt ${attempt + 1}/${totalAttempts + 1}). Rotating...`);
+      if (isKeyInvalid || isRateLimit) {
+        console.log(`Key ${isKeyInvalid ? "restricted/invalid" : "rate-limited"} (attempt ${attempt + 1}/${totalAttempts + 1}). Rotating immediately...`);
         if (attempt < totalAttempts) {
           const nowTime = Date.now();
           const healthyKeys = keyStates.filter((k) => nowTime >= k.cooldownUntil).length;
@@ -278,18 +295,23 @@ async function withRetry<T>(fn: (apiKey: string, proxyUrl?: string) => Promise<T
             continue;
           }
 
-          const jitter = Math.random() * 500;
-          const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)] + jitter;
-          console.log(`All keys rate-limited. Backing off for ${Math.round(delay)}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          continue;
+          if (isRateLimit) {
+            const jitter = Math.random() * 50;
+            const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)] + jitter;
+            console.log(`All keys rate-limited. Backing off for ${Math.round(delay)}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+        if (isKeyInvalid) {
+          throw new Error("API key or organization has been restricted. Please check your API keys in environment variables.");
         }
         throw new Error("All API keys are rate limited. Please wait a moment and try again.");
       }
 
-      // Server errors: standard backoff
+      // Server errors: standard quick backoff
       if (attempt < maxRetries) {
-        const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)] + Math.random() * 500;
+        const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)] + Math.random() * 50;
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
@@ -383,7 +405,7 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
           ],
           response_format: { type: "json_object" },
           temperature: 0.5,
-          max_tokens: 1024,
+          max_tokens: 800,
         }),
       });
 
@@ -453,7 +475,7 @@ async function streamGroqChat(
           messages,
           stream: true,
           temperature: 0.5,
-          max_tokens: 1024,
+          max_tokens: 800,
         }),
       }, 60000); // 60s timeout for streaming
 
