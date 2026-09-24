@@ -2,7 +2,7 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![Firebase](https://img.shields.io/badge/Firebase-Database%20%26%20Auth-066c47?style=for-the-badge&logo=firebase)](https://firebase.com/)
-[![GEMINI](https://img.shields.io/badge/Gemini-AI%20Inference-f26522?style=for-the-badge&logo=gemini)](https://gemini.google.com/)
+[![Fireworks AI](https://img.shields.io/badge/Fireworks_AI-DeepSeek_V4_Flash-f26522?style=for-the-badge)](https://fireworks.ai/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 **Architect AI** is a state-of-the-art AI-powered platform that transforms your startup ideas into comprehensive technical blueprints. From tech stack selection to deployment guides, it handles the architecture so you can focus on building.
@@ -34,7 +34,7 @@
 - **Styling**: Tailwind CSS, Framer Motion, Lucide React
 - **UI Components**: shadcn/ui
 - **Database & Auth**: Firebase
-- **AI Backend**: gemini API 
+- **AI Backend**: Fireworks AI (DeepSeek V4 Flash)
 - **State**: Zustand + SessionStorage Persistence
 
 ---
@@ -44,7 +44,7 @@
 ### 1. Prerequisites
 - Node.js 18+
 - Firebase Account
-- gemini API Key
+- Fireworks AI API Key
 
 ### 2. Installation
 ```bash
@@ -66,7 +66,7 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 NEXT_PUBLIC_FIREBASE_APP_ID
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
-GEMINI_API_KEY
+FIREWORKS_API_KEY
 ```
 
 ### 4. Database Setup
@@ -96,7 +96,7 @@ src/
 ## 🧠 AI Reliability
 
 By moving from client-side calls to a secure Next.js API route, we ensure:
-- **Security**: Your `gemini_API_KEY` remains hidden from the client.
+- **Security**: Your `FIREWORKS_API_KEY` remains hidden from the client.
 - **Rate Limiting**: Intelligent pacing and request queuing.
 - **Retries**: Built-in exponential backoff for stable AI responses.
 - **JSON Mode**: Forced structured output for reliable UI rendering.

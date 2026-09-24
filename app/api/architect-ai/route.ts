@@ -3,17 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 // ── Config ───────────────────────────────────────────────────────────
-const GROQ_MODEL = "openai/gpt-oss-120b";
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-
-const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct";
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-
-const OPENAI_MODEL = "gpt-4o-mini";
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const FIREWORKS_MODEL = "accounts/fireworks/models/deepseek-v4-flash-0731";
+const FIREWORKS_API_URL = "https://api.fireworks.ai/inference/v1/chat/completions";
 
 // Fallback API key — must be set through environment variables
-const FALLBACK_GROQ_KEY = "";
+const FALLBACK_FIREWORKS_KEY = "";
 
 // ── Concurrency: Allow up to 50 simultaneous API calls ───────────────
 const MAX_CONCURRENT = 50;
@@ -143,22 +137,16 @@ let keyStates: KeyState[] = [];
 
 function initializeKeys() {
   if (keyStates.length === 0) {
-    const rawGroq = process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || "";
-    const rawOr = process.env.OPENROUTER_API_KEYS || process.env.OPENROUTER_API_KEY || "";
-    const rawOai = process.env.OPENAI_API_KEYS || process.env.OPENAI_API_KEY || "";
-    const groqKeys = rawGroq.split(",").map((k) => k.trim()).filter(Boolean);
-    const orKeys = rawOr.split(",").map((k) => k.trim()).filter(Boolean);
-    const oaiKeys = rawOai.split(",").map((k) => k.trim()).filter(Boolean);
-
-    let splitKeys = [...groqKeys, ...orKeys, ...oaiKeys];
+    const rawFireworks = process.env.FIREWORKS_API_KEYS || process.env.FIREWORKS_API_KEY || "";
+    let splitKeys = rawFireworks.split(",").map((k) => k.trim()).filter(Boolean);
 
     // Map keys to custom proxy URLs if configured (comma-separated URLs corresponding to keys)
-    const rawProxies = process.env.GROQ_PROXY_URLS || "";
+    const rawProxies = process.env.FIREWORKS_PROXY_URLS || "";
     const proxyUrls = rawProxies.split(",").map((p) => p.trim()).filter(Boolean);
 
     // If no keys from env, use the fallback
-    if (splitKeys.length === 0 && FALLBACK_GROQ_KEY) {
-      splitKeys = [FALLBACK_GROQ_KEY];
+    if (splitKeys.length === 0 && FALLBACK_FIREWORKS_KEY) {
+      splitKeys = [FALLBACK_FIREWORKS_KEY];
     }
 
     keyStates = splitKeys
@@ -242,7 +230,7 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
 async function withRetry<T>(fn: (apiKey: string, proxyUrl?: string) => Promise<T>, maxRetries = 3): Promise<T> {
   initializeKeys();
   if (keyStates.length === 0) {
-    throw new Error("No API keys configured. Please configure at least one API key (e.g. GROQ_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY) in the environment variables.");
+    throw new Error("No API keys configured. Please configure FIREWORKS_API_KEY in the environment variables.");
   }
   let lastError: Error | null = null;
   const totalAttempts = Math.max(maxRetries, keyStates.length * 2);
@@ -366,8 +354,8 @@ const GUIDE_SCHEMA = `{
   }
 }`;
 
-// ── Groq JSON-mode helper ────────────────────────────────────────────
-async function callGroqWithTools(
+// ── Fireworks AI JSON-mode helper ────────────────────────────────────
+async function callFireworksWithTools(
   systemPrompt: string,
   userPrompt: string,
   jsonSchema: string,
@@ -382,15 +370,7 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
   await acquireSlot();
   try {
     const result = await withRetry(async (apiKey, proxyUrl) => {
-      let apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : GROQ_API_URL;
-      let model = GROQ_MODEL;
-      if (apiKey.startsWith("sk-or")) {
-        apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : OPENROUTER_API_URL;
-        model = OPENROUTER_MODEL;
-      } else if (apiKey.startsWith("sk-")) {
-        apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : OPENAI_API_URL;
-        model = OPENAI_MODEL;
-      }
+      const apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : FIREWORKS_API_URL;
       const response = await fetchWithTimeout(apiUrl, {
         method: "POST",
         headers: {
@@ -398,7 +378,7 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: model,
+          model: FIREWORKS_MODEL,
           messages: [
             { role: "system", content: fullSystemPrompt },
             { role: "user", content: userPrompt },
@@ -411,7 +391,7 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
 
       if (!response.ok) {
         const errBody = await response.text();
-        const err = new Error(`Groq API error ${response.status}: ${errBody}`);
+        const err = new Error(`Fireworks API error ${response.status}: ${errBody}`);
         (err as any).status = response.status;
         throw err;
       }
@@ -437,8 +417,8 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
   }
 }
 
-// ── Streaming chat with Groq (OpenAI-compatible SSE) ─────────────────
-async function streamGroqChat(
+// ── Streaming chat with Fireworks AI (OpenAI-compatible SSE) ─────────
+async function streamFireworksChat(
   systemPrompt: string,
   history: Array<{ role: string; content: string }>,
   message: string,
@@ -455,15 +435,7 @@ async function streamGroqChat(
   await acquireSlot();
   try {
     const res = await withRetry(async (apiKey, proxyUrl) => {
-      let apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : GROQ_API_URL;
-      let model = GROQ_MODEL;
-      if (apiKey.startsWith("sk-or")) {
-        apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : OPENROUTER_API_URL;
-        model = OPENROUTER_MODEL;
-      } else if (apiKey.startsWith("sk-")) {
-        apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : OPENAI_API_URL;
-        model = OPENAI_MODEL;
-      }
+      const apiUrl = proxyUrl ? `${proxyUrl}/chat/completions` : FIREWORKS_API_URL;
       const response = await fetchWithTimeout(apiUrl, {
         method: "POST",
         headers: {
@@ -471,7 +443,7 @@ async function streamGroqChat(
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: model,
+          model: FIREWORKS_MODEL,
           messages,
           stream: true,
           temperature: 0.5,
@@ -481,7 +453,7 @@ async function streamGroqChat(
 
       if (!response.ok) {
         const errBody = await response.text();
-        const err = new Error(`Groq API error ${response.status}: ${errBody}`);
+        const err = new Error(`Fireworks API error ${response.status}: ${errBody}`);
         (err as any).status = response.status;
         throw err;
       }
@@ -514,7 +486,7 @@ async function streamGroqChat(
                 const parsed = JSON.parse(jsonStr);
                 const text = parsed.choices?.[0]?.delta?.content;
                 if (text) {
-                  // Groq already uses OpenAI format, forward as-is
+                  // Fireworks uses OpenAI-compatible format, forward as-is
                   const chunk = JSON.stringify({
                     choices: [{ delta: { content: text } }],
                   });
@@ -572,7 +544,7 @@ export async function POST(request: NextRequest) {
       const result = await deduplicatedCall(cacheKey, async () => {
         const systemPrompt = `You are a product architect AI. Given a startup idea, determine which architecture categories are RELEVANT (typically 5-10 from: Platform, Frontend, Backend, Database, Authentication, Payments, Notifications, Search, Analytics, Deployment, Infrastructure, File Storage, CI/CD, Caching, Messaging/Queue, CDN, Monitoring, Email Service, etc. or custom ones). Generate the first architecture decision question for the first category. Each question should have between 2 and 6 options depending on how many meaningful choices exist for that category. Simple binary decisions can have 2 options; complex ones can have up to 6. The "suggestions" should be additional features/categories the user might want to consider.`;
 
-        const parsed = await callGroqWithTools(
+        const parsed = await callFireworksWithTools(
           systemPrompt,
           `Startup idea: ${idea}`,
           ANALYZE_SCHEMA,
@@ -604,7 +576,7 @@ export async function POST(request: NextRequest) {
       const result = await deduplicatedCall(cacheKey, async () => {
         const systemPrompt = `You are a product architect AI. Based on the startup idea and previous decisions, generate the next architecture decision question for the "${nextCategory}" category. Each question should have between 2 and 6 options depending on how many meaningful choices exist. Simple binary decisions can have 2 options; complex ones can have up to 6. Make options contextually relevant. The "details" field describes what's needed for the PREVIOUS selection. The "suggestions" should be additional categories/features not yet covered.`;
 
-        const parsed = await callGroqWithTools(
+        const parsed = await callFireworksWithTools(
           systemPrompt,
           `Idea: ${idea}\nPrevious decisions: ${decisionsStr}`,
           NEXT_QUESTION_SCHEMA,
@@ -637,7 +609,7 @@ export async function POST(request: NextRequest) {
       const result = await deduplicatedCall(cacheKey, async () => {
         const systemPrompt = `You are a product architect. Generate a complete implementation guide based on the architecture decisions.`;
 
-        const parsed = await callGroqWithTools(
+        const parsed = await callFireworksWithTools(
           systemPrompt,
           `Idea: ${idea}\nArchitecture:\n${decisionsStr}`,
           GUIDE_SCHEMA,
@@ -657,7 +629,7 @@ export async function POST(request: NextRequest) {
 
       const systemPrompt = `You are an AI architect assistant. The user is building: "${idea}". Their architecture decisions so far: ${decisionsStr}. Help them with technical questions about APIs, databases, deployment, authentication, libraries, and implementation. Be concise and practical. Keep answers short (3-5 sentences max unless asked for detail).`;
 
-      const stream = await streamGroqChat(systemPrompt, historyMessages, message);
+      const stream = await streamFireworksChat(systemPrompt, historyMessages, message);
 
       return new NextResponse(stream, {
         headers: {
