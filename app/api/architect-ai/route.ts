@@ -354,6 +354,66 @@ const GUIDE_SCHEMA = `{
   }
 }`;
 
+// ── Clean DeepSeek response text ─────────────────────────────────────
+function cleanModelResponse(text: string): string {
+  let cleaned = text;
+  // Strip <think>...</think> reasoning blocks (DeepSeek V4 emits these)
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  // Strip markdown code fences: ```json ... ``` or ``` ... ```
+  cleaned = cleaned.replace(/```(?:json)?\s*([\s\S]*?)```/gi, "$1");
+  return cleaned.trim();
+}
+
+// ── Extract valid JSON object from potentially messy text ────────────
+function extractJSON(raw: string): any | null {
+  const cleaned = cleanModelResponse(raw);
+
+  // First try: parse the cleaned text directly
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // ignore
+  }
+
+  // Second try: find the outermost { ... } using bracket matching
+  const start = cleaned.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(cleaned.slice(start, i + 1));
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 // ── Fireworks AI JSON-mode helper ────────────────────────────────────
 async function callFireworksWithTools(
   systemPrompt: string,
@@ -365,7 +425,7 @@ async function callFireworksWithTools(
 You MUST respond with valid JSON matching this exact schema:
 ${jsonSchema}
 
-Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fences.`;
+IMPORTANT: Do NOT include any thinking, reasoning, or explanation. Do NOT wrap in markdown code fences. Output ONLY the raw JSON object.`;
 
   await acquireSlot();
   try {
@@ -385,7 +445,7 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
           ],
           response_format: { type: "json_object" },
           temperature: 0.5,
-          max_tokens: 800,
+          max_tokens: 4096,
         }),
       });
 
@@ -402,16 +462,7 @@ Do NOT include any text outside the JSON object. Do NOT wrap in markdown code fe
     const text = result.choices?.[0]?.message?.content;
     if (!text) return null;
 
-    try {
-      return JSON.parse(text);
-    } catch {
-      // Try to extract JSON from the response if it has extra text
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
-      return null;
-    }
+    return extractJSON(text);
   } finally {
     releaseSlot();
   }
